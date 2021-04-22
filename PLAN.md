@@ -125,13 +125,14 @@ Having specialized modules helps with reusability of code segments. But it's not
 - [ ] 4 - Operator to clear export collections.
 - [ ] 4 - Write unit tests (low prio for a rapid prototype, otherwise higher).
 - [ ] 4 - Automatic testing of add-on in different Blender versions.
-
+- [x] 4 - CD workflow for add-on release. Saves me time and spares me manual, repetitive work for further development.
+  
 ### Documentation
 
 - [ ] 1 - Installation
 - [ ] 1 - Usage
   - [ ] 2 - Ctrl+click on view layer's eye symbol to isolate a full-body-outfit for review.
-  - [ ] 2 - Hold ctrl when linking assets to export collection manually by dragging assets from source collection to export collection. Do not use "move".
+  - [ ] 2 - Hold ctrl when linking assets to export collection manually by dragging assets from source collection to export collection. Do not use “move”.
 - [ ] 2 - Naming conventions
 - [ ] 4 - Video instructions
 
