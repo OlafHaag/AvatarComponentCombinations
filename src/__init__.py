@@ -26,7 +26,7 @@ bl_info = {
     "author": "Olaf Haag <contact@olafhaag.com>",
     "description": "Batch import of avatar components, and export of full-body combinations.",
     "blender": (2, 92, 0),
-    "version": (0, 0, 1),
+    "version": (0, 0, 2),
     "location": "3D View > Sidebar > Avatar",
     "warning": "",
     "doc_url": "https://github.com/OlafHaag/AvatarComponentCombinations/blob/main/README.md",
