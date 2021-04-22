@@ -15,3 +15,9 @@ jobs:
         with:
           path: 'src/'
           filename: 'AvatarComponentCombinations.zip'
+      - name: Upload Release
+        uses: ncipollo/release-action@v1
+        with:
+            artifacts: "AvatarComponentCombinations.zip"
+            prerelease: true
+            token: ${{ secrets.GITHUB_TOKEN }}
