@@ -5,7 +5,7 @@ It can execute the whole process automatically, or allow artists to be flexible 
 
 ## Installation
 
-- Download the **[Latest Add-on Release](https://github.com/OlafHaag/AvatarComponentCombinations/releases/latest/AvatarComponentCombinations.zip)**.
+- Download the **[Latest Add-on Release](https://github.com/OlafHaag/AvatarComponentCombinations/releases/latest/download/AvatarComponentCombinations.zip)**.
   Or go to the [Release page](https://github.com/OlafHaag/AvatarComponentCombinations/releases) of this repository and download the **AvatarComponentCombinations.zip** file from a release. It's under the “Assets” triangle menu, if you don't see it right away.
   - ***Note:*** Downloading just the source code from the repository won't work!
 - Start Blender, open its _Preferences_, and choose _Add-ons_ in the left sidebar.
