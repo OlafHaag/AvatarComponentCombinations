@@ -51,6 +51,12 @@ def traverse_tree(node: Any):
         yield from traverse_tree(child)
 
 
+def deselect_all() -> None:
+    """Deselect all objects. Use low-level API instead of relying on bpy.ops.object.select_all operator."""
+    for obj in bpy.data.objects:
+        obj.select_set(False)
+
+
 def remove_object(obj: bpy.types.Object):
     """Remove object from scene.
 
@@ -312,7 +318,7 @@ def import_sort_files(context) -> List[str]:
 
     # Since we deleted the last active object, set a new one (or None).
     context.view_layer.objects.active = armature
-    bpy.ops.object.select_all(action='DESELECT')
+    deselect_all()
 
     return errors
 
@@ -480,20 +486,25 @@ class ExportAvatarCombinations(bpy.types.Operator):
 
         for collection in export_collections:
             # Export is based on object selections. First, deselect everything.
-            bpy.ops.object.select_all(action='DESELECT')
+            deselect_all()
             # Now only select objects in 1 export collection at any time.
             for obj in collection.all_objects:
+                obj.hide_viewport = False
+                obj.hide_set(False)
                 obj.select_set(True)
+            context.view_layer.objects.active = None
             file_path = (Path(bpy.path.abspath(self.export_path)) /
                          collection.name.replace(".", "_")).with_suffix('.glb')
             try:
+                # ToDo: Use low-level API for export, not ops.
                 bpy.ops.export_scene.gltf(filepath=str(file_path), use_selection=True, check_existing=False)
                 self.report({'INFO'}, f"Exported combination to {file_path}.")
             except IOError as e:
                 self.report({'WARNING'}, f"Failed to export file {file_path}.\n{str(e)}")  # Error would abort all.
                 continue
 
-        bpy.ops.object.select_all(action='DESELECT')
+        deselect_all()
+        context.view_layer.objects.active = None
         return {'FINISHED'}
 
     def invoke(self, context, event):
