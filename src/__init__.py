@@ -94,12 +94,12 @@ def declare_addon_properties():
     )
     bpy.types.Scene.use_only_whole_sets = bpy.props.BoolProperty(
         name="Only Whole Sets",
-        description="Combine only components with the same texture variants.",
+        description="Combine only components with the same texture variants",
         default=False,
     )
     bpy.types.Scene.use_import_texture_variants = bpy.props.BoolProperty(
         name="Import Texture Variants",
-        description="Import other texture variants of components.",
+        description="Import other texture variants of components",
         default=False,
     )
 
