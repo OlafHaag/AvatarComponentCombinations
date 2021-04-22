@@ -1,0 +1,17 @@
+name: Publish release of add-on
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Zip Release
+        uses: TheDoctor0/zip-release@master
+        with:
+          path: 'src/'
+          filename: 'AvatarComponentCombinations.zip'
