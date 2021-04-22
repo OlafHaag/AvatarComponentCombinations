@@ -30,7 +30,7 @@ Watch the video below to see how the add-on is installed and used through Blende
 If you don't need to intervene in the process of preparing and drawing random asset combinations, and you just want to get a random selection of combinations quickly, you can run the _auto\_export\_avatars_ operator from the command-line.
 
 ```cmd
-blender --background --python-expr "import bpy;bpy.ops.acc.auto_export_avatars(import_path='path_to/components_root', export_path='path_to/export_folder/', n_combinations=10)"
+blender --background --addons AvatarComponentCombinations --python-expr "import bpy;bpy.ops.acc.auto_export_avatars(import_path='path_to/components_root', export_path='path_to/export_folder/', n_combinations=10)"
 ```
 
 If you're on Windows, you can either use the forward-slash path separator (`/`), or you must use the double back-slash path separator (`\\`).
