@@ -18,6 +18,7 @@
 
 # <pep8 compliant>
 
+import hashlib
 import itertools
 from pathlib import Path
 import random
@@ -243,21 +244,24 @@ def set_armature(obj: bpy.types.Object, armature: bpy.types.Object) -> bool:
     return True
 
 
-def import_sort_files(context) -> None:
+def import_sort_files(context) -> List[str]:
     """Import files that are listed in the scene's properties and sort them into collection categories.
 
     It's assumed that all files have the same armature as a base. Imported assets will share a single armature.
 
     :param context: Blender's context.
     :type context: bpy.types.Context
+    :return: Error messages.
+    :rtype: List[str]
     """
+    errors = list()
     armature = None
     for import_file in context.scene.import_files:
         try:
-            # ToDo To speed up imports, make use of low-level API and update scene afterwards.
+            # ToDo To speed up imports, try using low-level API and update scene afterwards.
             bpy.ops.import_scene.fbx(filepath=import_file.path, ignore_leaf_bones=True)
         except IOError:
-            print(f"WARNING: File {import_file.path} could not be imported.")  # ToDo: Make proper warning with logging.
+            errors.append(f"File {import_file.path} could not be imported.")
             continue
         file_name = Path(bpy.path.abspath(import_file.path)).stem
         objects = context.active_object.children
@@ -270,20 +274,37 @@ def import_sort_files(context) -> None:
             # Set armature name to include skeleton type (e.g. "f"/"m") as suffix.
             armature_suffix = fops.get_skeleton_type(file_name)
             armature.name = "-".join(("Armature", armature_suffix)).strip("-")  # Strip "-" if there's no suffix.
-        # Save source file property on imported objects.
-        for obj in objects:  # There's usually only 1 child.
-            obj.src_file = import_file.path
-            # In our case the imported meshes don't have very meaningful names. Change to file name.
-            obj.name = Path(bpy.path.abspath(obj.src_file)).stem
-            obj.data.name = obj.name
 
+        for obj in objects:  # There's usually only 1 child.
+            # ToDo: Refactor inner loop code to handle a single object into its own function.
+            # Save source file property on imported objects.
+            obj.src_file = import_file.path
+            # In our case the imported meshes don't have very meaningful names. Standardize with file-name tags.
+            fname_tags = fops.parse_file_name(file_name)
+            if fname_tags["region"] == "undefined":
+                fname_tags["region"] = import_file.category
+            obj.name = fops.tags_to_name(fname_tags)
+            obj.data.name = "_".join(("MESH", obj.name))  # Mesh name.
+            # Name materials accoding to their object.
+            # ToDo: Handle materials that are shared between objects. Not the case, for now.
+            for material in mops.get_materials(obj):  # There's usually only 1 material.
+                material.name = "_".join(("MAT", obj.name))  # If the object has multiple materials they'll be numbered.
+
+            # Sort object into a collection, and out of the scene's root collection.
             context.scene.collection.objects.unlink(obj)
             # We want everything to be deformed by the same armature.
             if not set_armature(obj, armature):
+                errors.append(f"Failed to set shared armature for {file_name}.")
                 context.scene.collection_map["_failed"].collection.objects.link(obj)
-                continue
-            # Sort objects into respective collection by category.
-            context.scene.collection_map[import_file.category].collection.objects.link(obj)
+            elif fname_tags["skeleton"] != armature_suffix:
+                errors.append(f"Armature mismatch detected for {file_name}.")
+                context.scene.collection_map["_failed"].collection.objects.link(obj)
+            elif fname_tags["region"] != import_file.category:
+                errors.append(f"Region mismatch detected for {file_name}.")
+                context.scene.collection_map["_failed"].collection.objects.link(obj)
+            else:
+                # Sort objects into their respective collection by the category associated with their path.
+                context.scene.collection_map[import_file.category].collection.objects.link(obj)
 
     if armature:
         context.scene.collection_map["_mandatory"].collection.objects.link(armature)
@@ -292,6 +313,8 @@ def import_sort_files(context) -> None:
     # Since we deleted the last active object, set a new one (or None).
     context.view_layer.objects.active = armature
     bpy.ops.object.select_all(action='DESELECT')
+
+    return errors
 
 
 def draw_combinations(context, n: int = 10) -> List:
@@ -320,7 +343,7 @@ def draw_combinations(context, n: int = 10) -> List:
     asset_lists = [collection.objects for collection in cat_collection_list]
     product = itertools.product(*asset_lists)
     # In case some assets are in the mandatory collection as well as in another category, filter out doubles.
-    product = [set(list(mandatory_collection.objects) + list(c)) for c in product]
+    product = [list(set(list(mandatory_collection.objects) + list(c))) for c in product]
     # Randomize arrangements and draw some combinations.
     # This makes sure the combinations are unique and we never draw more than actually exist.
     random.shuffle(product)
@@ -333,12 +356,18 @@ class ImportAvatarComponents(bpy.types.Operator):
 
     bl_idname = "import_scene.import_avatar_components"
     bl_label = "Import avatar components from FBX files."
+    bl_options = {'UNDO'}
 
     import_path: bpy.props.StringProperty(
         name="Import Folder",
         description="Root import folder for batch-importing FBX files with avatar components.",
         subtype='DIR_PATH',
         default="//",
+    )
+    use_texture_variants: bpy.props.BoolProperty(
+        name="Import Texture Variants",
+        description="Import other texture variants of components.",
+        default=False,
     )
 
     def execute(self, context):
@@ -347,6 +376,7 @@ class ImportAvatarComponents(bpy.types.Operator):
             self.report({'ERROR'}, "FBX Import-Export Add-on needs to be activated.")
             return {'CANCELLED'}
 
+        # ToDo: Refactor into a function for better undo support when called from other operators.
         # Save current settings to restore them in new scene later.
         export_path = context.scene.export_path
         n_combinations = context.scene.n_component_combinations
@@ -360,12 +390,15 @@ class ImportAvatarComponents(bpy.types.Operator):
         context.scene.export_path = export_path
         context.scene.n_component_combinations = n_combinations
 
-        import_sort_files(context)
+        errors = import_sort_files(context)
+        for err in errors:
+            self.report({'WARNING'}, err)
 
         return {'FINISHED'}
 
     def invoke(self, context, event):
         self.import_path = context.scene.import_root_path
+        self.use_texture_variants = context.scene.use_import_texture_variants
         return self.execute(context)
 
 
@@ -374,6 +407,7 @@ class CombineAvatarComponents(bpy.types.Operator):
 
     bl_idname = "acc.combine_avatar_components"
     bl_label = "Combine avatar components."
+    bl_options = {'REGISTER', 'UNDO'}
 
     n_combinations: bpy.props.IntProperty(
         name="Combinations",
@@ -382,8 +416,14 @@ class CombineAvatarComponents(bpy.types.Operator):
         min=1,
         soft_max=10,
     )
+    use_only_whole_sets: bpy.props.BoolProperty(
+        name="Only Whole Sets",
+        description="Combine only components with the same texture variants.",
+        default=False,
+    )
 
     def execute(self, context):
+        # ToDo: Refactor into a function for better undo support when called from other operators.
         combinations = draw_combinations(context, self.n_combinations)
         if not combinations:
             self.report({'ERROR'}, "Combining avatar components failed.")
@@ -395,11 +435,16 @@ class CombineAvatarComponents(bpy.types.Operator):
             return {'CANCELLED'}
 
         for combination in combinations:
-            new_collection = bpy.data.collections.new('out')  # ToDo: export-collections naming.
+            # Set a name for the new export collection. All objects have the same armature, get its type from the first.
+            comp_string = " ".join([obj.name for obj in combination])
+            suffix = hashlib.blake2s(comp_string.encode(), digest_size=8).hexdigest()  # 16 characters.
+            skeleton = fops.get_skeleton_type(combination[0].name)
+            collection_name = "-".join(("set", skeleton, suffix))
+            new_collection = bpy.data.collections.new(collection_name)
+            # Link object to collection.
             for obj in combination:
                 new_collection.objects.link(obj)
             export_collection.children.link(new_collection)
-        # FixMe: Undo crashes Blender?
         return {'FINISHED'}
 
     def invoke(self, context, event):
@@ -426,7 +471,7 @@ class ExportAvatarCombinations(bpy.types.Operator):
         if not hasattr(bpy.types, bpy.ops.export_scene.gltf.idname()):
             self.report({'ERROR'}, "glTF2 Import-Export Add-on needs to be activated.")
             return {'CANCELLED'}
-
+        # ToDo: Refactor into a function for better undo support when called from other operators.
         try:
             export_collections = context.scene.collection_map['export'].collection.children
         except KeyError as e:
@@ -445,7 +490,7 @@ class ExportAvatarCombinations(bpy.types.Operator):
                 bpy.ops.export_scene.gltf(filepath=str(file_path), use_selection=True, check_existing=False)
                 self.report({'INFO'}, f"Exported combination to {file_path}.")
             except IOError as e:
-                self.report({'ERROR'}, f"Failed to export file {file_path}.\n{str(e)}")
+                self.report({'WARNING'}, f"Failed to export file {file_path}.\n{str(e)}")  # Error would abort all.
                 continue
 
         bpy.ops.object.select_all(action='DESELECT')
@@ -461,6 +506,7 @@ class AutoImportExportAvatars(bpy.types.Operator):
 
     bl_idname = "acc.auto_export_avatars"
     bl_label = "Import FBX components and export GLB full-body avatars."
+    bl_options = {'UNDO'}
 
     import_path: bpy.props.StringProperty(
         name="Import Folder",
@@ -481,6 +527,16 @@ class AutoImportExportAvatars(bpy.types.Operator):
         min=1,
         soft_max=10,
     )
+    use_texture_variants: bpy.props.BoolProperty(
+        name="Import Texture Variants",
+        description="Import other texture variants of components.",
+        default=False,
+    )
+    use_only_whole_sets: bpy.props.BoolProperty(
+        name="Only Whole Sets",
+        description="Combine only components with the same texture variants.",
+        default=False,
+    )
 
     def execute(self, context):
         # Check Import-Export add-on availability before we take any action.
@@ -494,6 +550,7 @@ class AutoImportExportAvatars(bpy.types.Operator):
             return {'CANCELLED'}
 
         try:
+            # Calling other operators from withon operators is supposedly a bad idea, because of the undo system.
             bpy.ops.import_scene.import_avatar_components('EXEC_DEFAULT', import_path=self.import_path)
             bpy.ops.acc.combine_avatar_components('EXEC_DEFAULT', n_combinations=self.n_combinations)
             bpy.ops.export_scene.export_avatar_combinations('EXEC_DEFAULT', export_path=self.export_path)
@@ -507,4 +564,6 @@ class AutoImportExportAvatars(bpy.types.Operator):
         self.import_path = context.scene.import_root_path
         self.export_path = context.scene.export_path
         self.n_combinations = context.scene.n_component_combinations
+        self.use_texture_variants = context.scene.use_import_texture_variants
+        self.use_only_whole_sets = context.scene.use_only_whole_sets
         return self.execute(context)

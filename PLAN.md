@@ -102,8 +102,8 @@ Having specialized modules helps with reusability of code segments. But it's not
   - Handled by just ignoring subfolders that are not a category (second level).
 - [x] 1 - Import multiple files onto single skeleton.
   - Blender does not support importing onto an existing skeleton. Have to reassign target armature in modifier, re-parent, and delete additional armature.
-  - [ ] 1 - Handle consistency of object/mesh names.
-  - [ ] 1 - Handle consistency of material names.
+  - [x] 1 - Handle consistency of object/mesh names.
+  - [x] 1 - Handle consistency of material names.
   - [x] 1 - Handle consistency of armature names.
 - [x] 1 - Have a source- and an export-collection.
 - [x] 2 - Sort component meshes (top, bottom, footwear, and body) into respective category source-collections.
@@ -111,8 +111,12 @@ Having specialized modules helps with reusability of code segments. But it's not
   - [x] 3 - Having a “failed”-collection, e.g. when naming pattern isn't recognized, no skeleton, (or skeleton hierarchy differs).
 - [x] 1 - Recombine mesh components from each part category and link the combination to a unique export sub-collection.
   - [x] 1 - Allow each combination only once. Easiest: Create all possible combinations (Cartesian product) and choose an arbitrary number (10) for which to create export-collections. Doesn't scale well, probably only good for small amount of parts, but good enough for now.
-  - [ ] 1 - Choose a naming convention for export collection, which will form the file name.
-  - [ ] 3 - Mind texture variations, too.
+  - [ ] 3 - Mind texture variations, too. Do this on the import step.
+  - [x] 1 - Choose a naming convention for export collection, which will form the file name.
+    - Include skeleton type in name, since this is the only denominator between components.
+    - Writing each component into the name quickly becomes unfeasible.
+    - UUIDs would always create new files, although combinations might already exist.
+    - Adding a hash value based on included components on export may not be very human-readable, but would solve the above and could be “reverse-engineered” if all possible component combinations are known (which we do).
   - Enables easier review of full-body-outfits by artists.
   - Enables flexibility and creation of custom, intentional combinations, e.g. whole sets.
   - Collections define naming convention for exported files. Enables custom naming by artists.
@@ -127,6 +131,7 @@ Having specialized modules helps with reusability of code segments. But it's not
 - [ ] 1 - Installation
 - [ ] 1 - Usage
   - [ ] 2 - Ctrl+click on view layer's eye symbol to isolate a full-body-outfit for review.
+  - [ ] 2 - Hold ctrl when linking assets to export collection manually by dragging assets from source collection to export collection. Do not use "move".
 - [ ] 2 - Naming conventions
 - [ ] 4 - Video instructions
 

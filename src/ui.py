@@ -35,33 +35,38 @@ class VIEW3D_PT_AvatarComponentCombinations(bpy.types.Panel):
         # Paths.
         col.prop(context.scene, "import_root_path")
         col.prop(context.scene, "export_path")
-
+        # Main buttons.
         col = layout.column(align=True)
         # Import button.
-        prop_import = col.operator("import_scene.import_avatar_components",
-                                   text="Import",
-                                   icon='IMPORT')
-        prop_import.import_path = context.scene.import_root_path
+        prop = col.operator("import_scene.import_avatar_components",
+                            text="Import",
+                            icon='IMPORT')
+        prop.import_path = context.scene.import_root_path
         # Combine button.
-        prop_combine = col.operator("acc.combine_avatar_components",
-                                    text="Combine",
-                                    icon='SELECT_EXTEND')
-        prop_combine.n_combinations = context.scene.n_component_combinations
+        prop = col.operator("acc.combine_avatar_components",
+                            text="Combine",
+                            icon='SELECT_EXTEND')
+        prop.n_combinations = context.scene.n_component_combinations
         # Import button.
-        prop_export = col.operator("export_scene.export_avatar_combinations",
-                                   text="Export",
-                                   icon='EXPORT')
-        prop_export.export_path = context.scene.export_path
+        prop = col.operator("export_scene.export_avatar_combinations",
+                            text="Export",
+                            icon='EXPORT')
+        prop.export_path = context.scene.export_path
+        # Settings.
+        layout.separator()
+        layout.label(text="Settings:")
+        col = layout.column(align=True)
+        col.enabled = False
+        col.prop(context.scene, "use_import_texture_variants")
+        col.prop(context.scene, "use_only_whole_sets")
+        layout.prop(context.scene, "n_component_combinations")
         # Auto execution.
         layout.separator()
         layout.label(text="All-in-One:")
-        # Settings.
-        col = layout.column(align=True)
-        col.prop(context.scene, "n_component_combinations")
         # Auto import+export button.
-        prop_import_export = col.operator("acc.auto_export_avatars",
-                                          text="Import+Export",
-                                          icon='UV_SYNC_SELECT')
+        prop_import_export = layout.operator("acc.auto_export_avatars",
+                                             text="Import+Export",
+                                             icon='UV_SYNC_SELECT')
         prop_import_export.import_path = context.scene.import_root_path
         prop_import_export.export_path = context.scene.export_path
         prop_import_export.n_combinations = context.scene.n_component_combinations
