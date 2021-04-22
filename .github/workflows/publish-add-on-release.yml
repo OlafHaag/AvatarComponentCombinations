@@ -11,8 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Rename src
-        run: |
-        mv src AvatarComponentCombinations
+        run: mv src/ AvatarComponentCombinations/
       - name: Zip Release
         uses: TheDoctor0/zip-release@master
         with:
