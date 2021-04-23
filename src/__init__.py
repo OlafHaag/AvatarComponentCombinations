@@ -92,7 +92,7 @@ def declare_addon_properties():
         description="Source file path from which the asset was imported",
         subtype='FILE_PATH',
     )
-    bpy.types.Scene.use_only_whole_sets = bpy.props.BoolProperty(
+    bpy.types.Scene.use_only_matching_sets = bpy.props.BoolProperty(
         name="Only Whole Sets",
         description="Combine only components with the same texture variants",
         default=False,
@@ -112,7 +112,7 @@ def remove_addon_properties():
     del bpy.types.Scene.collection_map
     del bpy.types.Scene.n_component_combinations
     del bpy.types.Object.src_file
-    del bpy.types.Scene.use_only_whole_sets
+    del bpy.types.Scene.use_only_matching_sets
     del bpy.types.Scene.use_import_texture_variants
 
 

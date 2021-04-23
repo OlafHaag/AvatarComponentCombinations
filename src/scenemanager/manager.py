@@ -422,7 +422,7 @@ class CombineAvatarComponents(bpy.types.Operator):
         min=1,
         soft_max=10,
     )
-    use_only_whole_sets: bpy.props.BoolProperty(
+    use_only_matching_sets: bpy.props.BoolProperty(
         name="Only Whole Sets",
         description="Combine only components with the same texture variants.",
         default=False,
@@ -543,7 +543,7 @@ class AutoImportExportAvatars(bpy.types.Operator):
         description="Import other texture variants of components.",
         default=False,
     )
-    use_only_whole_sets: bpy.props.BoolProperty(
+    use_only_matching_sets: bpy.props.BoolProperty(
         name="Only Whole Sets",
         description="Combine only components with the same texture variants.",
         default=False,
@@ -576,5 +576,5 @@ class AutoImportExportAvatars(bpy.types.Operator):
         self.export_path = context.scene.export_path
         self.n_combinations = context.scene.n_component_combinations
         self.use_texture_variants = context.scene.use_import_texture_variants
-        self.use_only_whole_sets = context.scene.use_only_whole_sets
+        self.use_only_matching_sets = context.scene.use_only_matching_sets
         return self.execute(context)

@@ -41,7 +41,7 @@ If you're on Windows, you can either use the forward-slash path separator (`/`),
 - export_path: Target folder for batch-exporting GLB files with full-body outfits.
 - n_combinations: Number of full-body outfits to export. Optional. Default is 10.
 - [PLANNED] use_import_texture_variants: Import other texture variants of components.
-- [PLANNED] use_only_whole_sets: Combine only components with the same texture variants.
+- [PLANNED] use_only_matching_sets: Combine only components with the same texture variants.
 
 ## Conventions
 
