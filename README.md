@@ -23,7 +23,7 @@ You can use the add-on via Blender's user-interface or use the command-line to r
 ### Using the Blender Interface
 
 Watch the video below to see how the add-on is installed and used through Blender's GUI.
-[![Demonstration of Avatar Component Combinations](http://img.youtube.com/vi/TODO/0.jpg)](http://www.youtube.com/watch?v=TODO "Demonstration of Avatar Component Combinations")
+[![Demonstration of Avatar Component Combinations](https://img.youtube.com/vi/rvdBwaWIY7k/0.jpg)](https://youtu.be/rvdBwaWIY7k "Demonstration of Avatar Component Combinations")
 
 ### Command-line
 
