@@ -150,6 +150,8 @@ def create_collections(names: List[str],
 def set_collection_map_as_property(scene: bpy.types.Scene, collection_map: Dict[str, bpy.types.Collection]) -> bool:
     """Save a mapping between intended name of a collection and its reference as a scene property.
 
+    Clears any previous data in the property.
+
     :param scene: Scene for which to save the name to collection map as a property.
     :type scene: bpy.types.Scene
     :param collection_map: A mapping between an intended name for a collection and its reference.
@@ -162,6 +164,8 @@ def set_collection_map_as_property(scene: bpy.types.Scene, collection_map: Dict[
     is_congruent = not set(collection_map.values()) - scene_collections
     if not is_congruent:
         return False
+    # Remove any previouos data.
+    scene.collection_map.clear()
     # Add scene property items.
     for key, collection in collection_map.items():
         col_map = scene.collection_map.add()
