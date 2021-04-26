@@ -202,7 +202,7 @@ def set_importfiles_props(scene: Optional[bpy.types.Scene] = None, ext: str = "f
     return True
 
 
-def init_import_scene(import_path: Union[Path, str],) -> bool:
+def init_import_scene(import_path: Union[Path, str], use_new_scene: bool = True) -> bool:
     """Initialize a new scene for avatar component import.
 
     Create a new scene and populate it with collections, custom properties like a list of files to import.
@@ -212,20 +212,26 @@ def init_import_scene(import_path: Union[Path, str],) -> bool:
     :return: Success of setting scene properties for preparing file imports.
     :rtype: bool
     """
-    new_scene = create_new_scene()
-    new_scene.import_root_path = str(import_path)
-    init_collections = create_initial_collections(new_scene)
-    if not set_collection_map_as_property(new_scene, init_collections):
+    if use_new_scene:
+        scene = create_new_scene()
+    else:
+        # Current active scene.
+        scene = bpy.context.scene
+    try:
+        scene.import_root_path = str(import_path)
+    except AttributeError:
         return False
-    # Convert Blender path to Path object.
-    if isinstance(import_path, str):
-        import_path = Path(bpy.path.abspath(import_path))
+    # ToDo: Merge with existing collecitons if not a new scene?
+    init_collections = create_initial_collections(scene)
+    if not set_collection_map_as_property(scene, init_collections):
+        # Incongruency should not be possible, though, since we just linked the new collections to this scene.
+        return False
     # Create component categories.
     categories = fops.get_subfolders(import_path)
     cat_collections = create_collections(categories, parent=init_collections['src'])
-    if not set_collection_map_as_property(new_scene, cat_collections):
+    if not set_collection_map_as_property(scene, cat_collections):  # No category collections.
         return False
-    if not set_importfiles_props(new_scene):
+    if not set_importfiles_props(scene):  # Scene not initialized or no files found.
         return False
 
     return True
