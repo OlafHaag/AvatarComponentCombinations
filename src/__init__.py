@@ -93,7 +93,7 @@ def declare_addon_properties():
         subtype='FILE_PATH',
     )
     bpy.types.Scene.use_only_matching_sets = bpy.props.BoolProperty(
-        name="Only Whole Sets",
+        name="Only Matching Sets",
         description="Combine only components with the same texture variants",
         default=False,
     )
