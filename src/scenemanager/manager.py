@@ -35,8 +35,6 @@ from . import scenesetup as setup
 from .. import file_ops as fops
 
 
-# ToDo: Split manager into smaller files by function domain (e.g. collection/properties related, operators).
-
 # Create new helper-class to transport messages from functions to operators for displaying them in the GUI.
 Feedback = namedtuple("Feedback", ["type", "msg"])
 

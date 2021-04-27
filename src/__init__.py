@@ -106,14 +106,17 @@ def declare_addon_properties():
 
 def remove_addon_properties():
     """Remove the custom add-on properties."""
-    del bpy.types.Scene.import_root_path
-    del bpy.types.Scene.export_path
-    del bpy.types.Scene.import_files
-    del bpy.types.Scene.collection_map
-    del bpy.types.Scene.n_component_combinations
-    del bpy.types.Object.src_file
-    del bpy.types.Scene.use_only_matching_sets
-    del bpy.types.Scene.use_import_texture_variants
+    try:
+        del bpy.types.Scene.import_root_path
+        del bpy.types.Scene.export_path
+        del bpy.types.Scene.import_files
+        del bpy.types.Scene.collection_map
+        del bpy.types.Scene.n_component_combinations
+        del bpy.types.Object.src_file
+        del bpy.types.Scene.use_only_matching_sets
+        del bpy.types.Scene.use_import_texture_variants
+    except AttributeError:
+        pass
 
 
 auto_load.init()
