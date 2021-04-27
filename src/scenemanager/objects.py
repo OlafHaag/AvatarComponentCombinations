@@ -19,6 +19,7 @@
 # <pep8 compliant>
 
 from typing import (Any,
+                    Generator
                     )
 import bpy
 
