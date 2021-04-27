@@ -27,7 +27,7 @@ from typing import (List,
 
 import bpy
 
-from .scenemanager.materials import parse_img_name
+from ..scenemanager.materials import parse_img_name
 
 
 def get_subfolders(parent_path: Union[Path, str]) -> List[str]:

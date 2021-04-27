@@ -16,7 +16,7 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-from .manager import (batch_import_components,
-                      add_combinations_to_export,
-                      export_combinations,
-                      )
+# <pep8 compliant>
+
+from .path_ops import *
+from .fbx import load_fbx

@@ -18,6 +18,7 @@
 
 # <pep8 compliant>
 
+from collections import namedtuple
 import hashlib
 import itertools
 from pathlib import Path
@@ -26,49 +27,25 @@ from typing import (Optional,
                     Union,
                     Dict,
                     List,
-                    Any,
                     Generator,
                     )
 import bpy
 from bpy.types import Key
 
 from . import materials as mops  # Kinda like Houdini lingo :)
+from . import objects as objops
 from .. import file_ops as fops
 
 
 # ToDo: Split manager into smaller files by function domain (e.g. collection/properties related, operators).
 
-def traverse_tree(node: Any):
-    """Traverse all children of a directed acyclic graph hierarchy.
-
-    :param node: Current node to traverse from. Needs to have a children attribute.
-    :type node: Any
-    :yield: Current node.
-    :rtype: Generator
-    """
-    yield node
-    for child in node.children:
-        yield from traverse_tree(child)
+# Create new helper-class to transport messages from functions to operators for displaying them in the GUI.
+Feedback = namedtuple("Feedback", ["type", "msg"])
 
 
-def deselect_all() -> None:
-    """Deselect all objects. Use low-level API instead of relying on bpy.ops.object.select_all operator."""
-    for obj in bpy.data.objects:
-        obj.select_set(False)
-
-
-def remove_object(obj: bpy.types.Object):
-    """Remove object from scene.
-
-    :param obj: Object to remove
-    :type obj: bpy.types.Object
-    """
-    for collection in list(obj.users_collection):
-        collection.objects.unlink(obj)
-    if obj.users == 0:
-        bpy.data.objects.remove(obj)
-    del obj
-
+###########################################################################################
+# Scene initialization. ###################################################################
+###########################################################################################
 
 def create_new_scene(scene_name: str = 'Avatar Component Combinations') -> bpy.types.Scene:
     """Create a new scene, name it, and make it active.
@@ -85,7 +62,7 @@ def create_new_scene(scene_name: str = 'Avatar Component Combinations') -> bpy.t
 
 
 def create_initial_collections(scene: Optional[bpy.types.Scene] = None) -> Dict[str, bpy.types.Collection]:
-    """Create source and export collections, as well as mandatory and failed subcollections in source.
+    """Create source and export collections, as well as failed, ignore, and mandatory subcollections in source.
 
     :param scene: Scene in which to create new collections.
     :return: Mapping of names to references for new collections.
@@ -160,16 +137,19 @@ def set_collection_map_as_property(scene: bpy.types.Scene, collection_map: Dict[
     :rtype: bool
     """
     # Make sure the collections in the map belong to this scene.
-    scene_collections = set(traverse_tree(scene.collection))
+    scene_collections = set(objops.traverse_tree(scene.collection))
     is_congruent = not set(collection_map.values()) - scene_collections
     if not is_congruent:
         return False
-    # Remove any previouos data.
-    scene.collection_map.clear()
     # Add scene property items.
     for key, collection in collection_map.items():
-        col_map = scene.collection_map.add()
-        col_map.name = key
+        # Overwrite any previous data with same key. Otherwise a new key with the same name is added to the property.
+        if key in scene.collection_map.keys():
+            col_map = scene.collection_map[key]
+            # ToDo: What about old collection in properties, if it's a different one?
+        else:
+            col_map = scene.collection_map.add()
+            col_map.name = key
         col_map.collection = collection
     return True
 
@@ -202,7 +182,7 @@ def set_importfiles_props(scene: Optional[bpy.types.Scene] = None, ext: str = "f
     return True
 
 
-def init_import_scene(import_path: Union[Path, str], use_new_scene: bool = True) -> bool:
+def init_import_scene(import_path: Union[Path, str], use_new_scene: bool = True) -> Optional[bool]:
     """Initialize a new scene for avatar component import.
 
     Create a new scene and populate it with collections, custom properties like a list of files to import.
@@ -210,8 +190,10 @@ def init_import_scene(import_path: Union[Path, str], use_new_scene: bool = True)
     :param import_path: Root import folder for batch-importing FBX files with avatar components.
     :type import_path: Union[Path, str]
     :return: Success of setting scene properties for preparing file imports.
-    :rtype: bool
+    :rtype: bool|None
     """
+    if not Path(bpy.path.abspath(str(import_path))).is_dir():
+        return None
     if use_new_scene:
         scene = create_new_scene()
     else:
@@ -221,7 +203,7 @@ def init_import_scene(import_path: Union[Path, str], use_new_scene: bool = True)
         scene.import_root_path = str(import_path)
     except AttributeError:
         return False
-    # ToDo: Merge with existing collecitons if not a new scene?
+    # ToDo: Merge with existing collections if not a new scene?
     init_collections = create_initial_collections(scene)
     if not set_collection_map_as_property(scene, init_collections):
         # Incongruency should not be possible, though, since we just linked the new collections to this scene.
@@ -229,38 +211,19 @@ def init_import_scene(import_path: Union[Path, str], use_new_scene: bool = True)
     # Create component categories.
     categories = fops.get_subfolders(import_path)
     cat_collections = create_collections(categories, parent=init_collections['src'])
-    if not set_collection_map_as_property(scene, cat_collections):  # No category collections.
+    if not set_collection_map_as_property(scene, cat_collections):  # No category collections?
         return False
-    if not set_importfiles_props(scene):  # Scene not initialized or no files found.
+    if not set_importfiles_props(scene):  # Scene not initialized or no files found?
         return False
 
     return True
 
 
-def set_armature(obj: bpy.types.Object, armature: bpy.types.Object) -> bool:
-    """Parent armature to object and modify the armature modifier accordingly, if present.
+###########################################################################################
+# Assets import. ##########################################################################
+###########################################################################################
 
-    :param obj: Object to set as a child to the armature.
-    :type obj: bpy.types.Object
-    :param armature: Armature to set as a parent to the object.
-    :type armature: bpy.types.Object
-    :return: Whether the objet has an armature modifier or not.
-    :rtype: bool
-    """
-    obj.parent = armature
-
-    for mod in obj.modifiers:  # We expect 1 modifier, but the stack could be empty (static mesh).
-        # Assume "Armature" is the only modifier, but the name is not safe because of counter-suffixes.
-        if mod.type == 'ARMATURE':
-            mod.object = armature
-            mod.name = "Armature"
-            break
-    else:
-        return False
-    return True
-
-
-def import_sort_files(context) -> List[str]:
+def import_sort_files(context) -> List[Feedback]:
     """Import files that are listed in the scene's properties and sort them into collection categories.
 
     It's assumed that all files have the same armature as a base. Imported assets will share a single armature.
@@ -268,23 +231,24 @@ def import_sort_files(context) -> List[str]:
     :param context: Blender's context.
     :type context: bpy.types.Context
     :return: Error messages.
-    :rtype: List[str]
+    :rtype: List[tuple]
     """
-    errors = list()
+    feedback = list()
     armature = None
     for import_file in context.scene.import_files:
         try:
-            # ToDo To speed up imports, try using low-level API and update scene afterwards.
-            bpy.ops.import_scene.fbx(filepath=import_file.path, ignore_leaf_bones=True)
+            ret_msgs = fops.load_fbx(context, file_path=import_file.path, ignore_leaf_bones=True)
+            if ret_msgs:
+                feedback.extend([Feedback(*msg) for msg in ret_msgs])
         except IOError:
-            errors.append(f"File {import_file.path} could not be imported.")
+            feedback.append(Feedback(type='ERROR', msg=f"File {import_file.path} could not be imported."))
             continue
         file_name = Path(bpy.path.abspath(import_file.path)).stem
         objects = context.active_object.children
         # The first armature that comes in will serve as base for all further imported assets.
         if armature:
             # Get rid of redundant armature. The imported asset is automatically made active.
-            remove_object(context.active_object)
+            objops.remove_object(context.active_object)
         elif context.active_object.type == 'ARMATURE':
             armature = context.active_object
             # Set armature name to include skeleton type (e.g. "f"/"m") as suffix.
@@ -309,14 +273,14 @@ def import_sort_files(context) -> List[str]:
             # Sort object into a collection, and out of the scene's root collection.
             context.scene.collection.objects.unlink(obj)
             # We want everything to be deformed by the same armature.
-            if not set_armature(obj, armature):
-                errors.append(f"Failed to set shared armature for {file_name}.")
+            if not objops.set_armature(obj, armature):
+                feedback.append(Feedback(type='WARNING', msg=f"Failed to set shared armature for {file_name}."))
                 context.scene.collection_map["_failed"].collection.objects.link(obj)
             elif fname_tags["skeleton"] != armature_suffix:
-                errors.append(f"Armature mismatch detected for {file_name}.")
+                feedback.append(Feedback(type='WARNING', msg=f"Armature mismatch detected for {file_name}."))
                 context.scene.collection_map["_failed"].collection.objects.link(obj)
             elif fname_tags["region"] != import_file.category:
-                errors.append(f"Region mismatch detected for {file_name}.")
+                feedback.append(Feedback(type='WARNING', msg=f"Region mismatch detected for {file_name}."))
                 context.scene.collection_map["_failed"].collection.objects.link(obj)
             else:
                 # Sort objects into their respective collection by the category associated with their path.
@@ -328,10 +292,45 @@ def import_sort_files(context) -> List[str]:
 
     # Since we deleted the last active object, set a new one (or None).
     context.view_layer.objects.active = armature
-    deselect_all()
+    objops.deselect_all()
 
-    return errors
+    return feedback
 
+
+def batch_import_components(context, path: Union[Path, str], use_new_scene: bool = True) -> List[Feedback]:
+    """[summary]
+
+    :param context: [description]
+    :type context: [type]
+    :param path: [description]
+    :type path: Union[Path, str]
+    :param use_new_scene: [description], defaults to True
+    :type use_new_scene: bool, optional
+    :return: [description]
+    :rtype: List[Feedback]
+    """
+    feedback = list()
+    # Save current settings to restore them in new scene later.
+    export_path = context.scene.export_path
+    n_combinations = context.scene.n_component_combinations
+    # Prepare new scene for imports.
+    is_initialized = init_import_scene(path, use_new_scene=use_new_scene)
+    if not is_initialized:
+        feedback.append(Feedback(type='ERROR', msg="Importing avatar components failed."))
+    else:
+        # Restore previous settings.
+        context.scene.export_path = export_path
+        context.scene.n_component_combinations = n_combinations
+        import_errors = import_sort_files(context)
+        feedback.extend(import_errors)
+    if use_new_scene and is_initialized is not None:
+        feedback.append(Feedback(type='INFO', msg="Created a new scene. Your old scene is still there!"))
+    return feedback
+
+
+###########################################################################################
+# Component combinations. #################################################################
+###########################################################################################
 
 def draw_combinations(context, n: int = 10) -> List:
     """Draw N random combinations from scene's source collections categories.
@@ -367,224 +366,81 @@ def draw_combinations(context, n: int = 10) -> List:
     return combinations
 
 
-class ImportAvatarComponents(bpy.types.Operator):
-    """Import avatar components from given parent folder path"""
+def add_combinations_to_export(context, n_combinations: int = 10) -> List[Feedback]:
+    """[summary]
 
-    bl_idname = "import_scene.import_avatar_components"
-    bl_label = "Import avatar components from FBX files."
-    bl_options = {'UNDO'}
+    :param context: [description]
+    :type context: [type]
+    :param n_combinations: [description], defaults to 10
+    :type n_combinations: int, optional
+    :return: [description]
+    :rtype: List[Feedback]
+    """
+    feedback = list()
+    combinations = draw_combinations(context, n_combinations)
+    if not combinations:
+        feedback.append(Feedback(type='ERROR', msg="Combining avatar components failed."))
+        return feedback
+    try:
+        export_collection = context.scene.collection_map["export"].collection
+    except KeyError:
+        feedback.append(Feedback(type='ERROR', msg="Scene is not initialized properly. Missing export collection."))
+        return feedback
 
-    import_path: bpy.props.StringProperty(
-        name="Import Folder",
-        description="Root import folder for batch-importing FBX files with avatar components.",
-        subtype='DIR_PATH',
-        default="//",
-    )
-    use_texture_variants: bpy.props.BoolProperty(
-        name="Import Texture Variants",
-        description="Import other texture variants of components.",
-        default=False,
-    )
-
-    def execute(self, context):
-        # Is FBX add-on activated?
-        if not hasattr(bpy.types, bpy.ops.import_scene.fbx.idname()):
-            self.report({'ERROR'}, "FBX Import-Export Add-on needs to be activated.")
-            return {'CANCELLED'}
-
-        # ToDo: Refactor into a function for better undo support when called from other operators.
-        # Save current settings to restore them in new scene later.
-        export_path = context.scene.export_path
-        n_combinations = context.scene.n_component_combinations
-        # Prepare new scene for imports.
-        if not init_import_scene(self.import_path):
-            self.report({'ERROR'}, "Importing avatar components failed.")
-            return {'CANCELLED'}
-
-        self.report({'INFO'}, "Created a new scene. Your old scene is still there!")
-        # Restore previous settings.
-        context.scene.export_path = export_path
-        context.scene.n_component_combinations = n_combinations
-
-        errors = import_sort_files(context)
-        for err in errors:
-            self.report({'WARNING'}, err)
-
-        return {'FINISHED'}
-
-    def invoke(self, context, event):
-        self.import_path = context.scene.import_root_path
-        self.use_texture_variants = context.scene.use_import_texture_variants
-        return self.execute(context)
+    for combination in combinations:
+        # Set a name for the new export collection. All objects have the same armature, get its type from the first.
+        comp_string = " ".join(sorted([obj.name for obj in combination]))
+        suffix = hashlib.blake2s(comp_string.encode(), digest_size=8).hexdigest()  # 16 characters.
+        skeleton = fops.get_skeleton_type(combination[0].name)
+        collection_name = "-".join(("set", skeleton, suffix))
+        new_collection = bpy.data.collections.new(collection_name)
+        # Link object to collection.
+        for obj in combination:
+            new_collection.objects.link(obj)
+        export_collection.children.link(new_collection)
+    return feedback
 
 
-class CombineAvatarComponents(bpy.types.Operator):
-    """Combine avatar components to form full arrangements"""
+def export_combinations(context, export_path: Union[Path, str]) -> List[Feedback]:
+    """[summary]
 
-    bl_idname = "acc.combine_avatar_components"
-    bl_label = "Combine avatar components."
-    bl_options = {'REGISTER', 'UNDO'}
+    :param context: [description]
+    :type context: [type]
+    :param export_path: [description]
+    :type export_path: Union[Path, str]
+    :return: [description]
+    :rtype: List[Feedback]
+    """
+    feedback = list()
+    try:
+        export_collections = context.scene.collection_map['export'].collection.children
+    except KeyError:
+        feedback.append(Feedback(type='ERROR', msg="Scene is not initialized properly. Missing export collection."))
+        return feedback
 
-    n_combinations: bpy.props.IntProperty(
-        name="Combinations",
-        description="Number of combinations to create from components.",
-        default=10,
-        min=1,
-        soft_max=10,
-    )
-    use_only_matching_sets: bpy.props.BoolProperty(
-        name="Only Whole Sets",
-        description="Combine only components with the same texture variants.",
-        default=False,
-    )
+    if not Path(bpy.path.abspath(str(export_path))).is_dir():
+        feedback.append(Feedback(type='ERROR', msg="Export destination is not a directory."))
+        return feedback
 
-    def execute(self, context):
-        # ToDo: Refactor into a function for better undo support when called from other operators.
-        combinations = draw_combinations(context, self.n_combinations)
-        if not combinations:
-            self.report({'ERROR'}, "Combining avatar components failed.")
-            return {'CANCELLED'}
-        try:
-            export_collection = context.scene.collection_map["export"].collection
-        except KeyError:
-            self.report({'ERROR'}, "Scene is not initialized properly. Missing export collection.")
-            return {'CANCELLED'}
-
-        for combination in combinations:
-            # Set a name for the new export collection. All objects have the same armature, get its type from the first.
-            comp_string = " ".join([obj.name for obj in combination])
-            suffix = hashlib.blake2s(comp_string.encode(), digest_size=8).hexdigest()  # 16 characters.
-            skeleton = fops.get_skeleton_type(combination[0].name)
-            collection_name = "-".join(("set", skeleton, suffix))
-            new_collection = bpy.data.collections.new(collection_name)
-            # Link object to collection.
-            for obj in combination:
-                new_collection.objects.link(obj)
-            export_collection.children.link(new_collection)
-        return {'FINISHED'}
-
-    def invoke(self, context, event):
-        # When called via UI. ask user how many combinations should be made.
-        wm = context.window_manager
-        return wm.invoke_props_dialog(self)
-
-
-class ExportAvatarCombinations(bpy.types.Operator):
-    """Export combinations of avatar components to GLB format"""
-
-    bl_idname = "export_scene.export_avatar_combinations"
-    bl_label = "Export avatar combinations."
-
-    export_path: bpy.props.StringProperty(
-        name="Export Folder",
-        description="Target folder for batch-exporting GLB files with full-body outfits.",
-        subtype='DIR_PATH',
-        default="//",
-    )
-
-    def execute(self, context):
-        # Is glTF2 add-on activated?
-        if not hasattr(bpy.types, bpy.ops.export_scene.gltf.idname()):
-            self.report({'ERROR'}, "glTF2 Import-Export Add-on needs to be activated.")
-            return {'CANCELLED'}
-        # ToDo: Refactor into a function for better undo support when called from other operators.
-        try:
-            export_collections = context.scene.collection_map['export'].collection.children
-        except KeyError as e:
-            self.report({'ERROR'}, "Scene is not initialized properly. Missing export collection.")
-            return {'CANCELLED'}
-
-        for collection in export_collections:
-            # Export is based on object selections. First, deselect everything.
-            deselect_all()
-            # Now only select objects in 1 export collection at any time.
-            for obj in collection.all_objects:
-                obj.hide_viewport = False
-                obj.hide_set(False)
-                obj.select_set(True)
-            context.view_layer.objects.active = None
-            file_path = (Path(bpy.path.abspath(self.export_path)) /
-                         collection.name.replace(".", "_")).with_suffix('.glb')
-            try:
-                # ToDo: Use low-level API for export, not ops.
-                bpy.ops.export_scene.gltf(filepath=str(file_path), use_selection=True, check_existing=False)
-                self.report({'INFO'}, f"Exported combination to {file_path}.")
-            except IOError as e:
-                self.report({'WARNING'}, f"Failed to export file {file_path}.\n{str(e)}")  # Error would abort all.
-                continue
-
-        deselect_all()
+    for collection in export_collections:
+        # Export is based on object selections. First, deselect everything.
+        objops.deselect_all()
+        # Now only select objects in 1 export collection at any time.
+        for obj in collection.all_objects:
+            obj.hide_viewport = False
+            obj.hide_set(False)
+            obj.select_set(True)
         context.view_layer.objects.active = None
-        return {'FINISHED'}
-
-    def invoke(self, context, event):
-        self.export_path = context.scene.export_path
-        return self.execute(context)
-
-
-class AutoImportExportAvatars(bpy.types.Operator):
-    """Import avatar components and export combinations in one go without user interaction"""
-
-    bl_idname = "acc.auto_export_avatars"
-    bl_label = "Import FBX components and export GLB full-body avatars."
-    bl_options = {'UNDO'}
-
-    import_path: bpy.props.StringProperty(
-        name="Import Folder",
-        description="Root import folder for batch-importing FBX files with avatar components.",
-        subtype='DIR_PATH',
-        default="//",
-    )
-    export_path: bpy.props.StringProperty(
-        name="Export Folder",
-        description="Target folder for batch-exporting GLB files with fullbody outfits.",
-        subtype='DIR_PATH',
-        default="//",
-    )
-    n_combinations: bpy.props.IntProperty(
-        name="Combinations",
-        description="Number of combinations to create from components.",
-        default=10,
-        min=1,
-        soft_max=10,
-    )
-    use_texture_variants: bpy.props.BoolProperty(
-        name="Import Texture Variants",
-        description="Import other texture variants of components.",
-        default=False,
-    )
-    use_only_matching_sets: bpy.props.BoolProperty(
-        name="Only Whole Sets",
-        description="Combine only components with the same texture variants.",
-        default=False,
-    )
-
-    def execute(self, context):
-        # Check Import-Export add-on availability before we take any action.
-        # Is FBX add-on activated?
-        if not hasattr(bpy.types, bpy.ops.import_scene.fbx.idname()):
-            self.report({'ERROR'}, "FBX Import-Export Add-on needs to be activated.")
-            return {'CANCELLED'}
-        # Is glTF2 add-on activated?
-        if not hasattr(bpy.types, bpy.ops.export_scene.gltf.idname()):
-            self.report({'ERROR'}, "glTF2 Import-Export Add-on needs to be activated.")
-            return {'CANCELLED'}
-
+        file_path = (Path(bpy.path.abspath(str(export_path))) / collection.name.replace(".", "_")).with_suffix('.glb')
         try:
-            # Calling other operators from withon operators is supposedly a bad idea, because of the undo system.
-            bpy.ops.import_scene.import_avatar_components('EXEC_DEFAULT', import_path=self.import_path)
-            bpy.ops.acc.combine_avatar_components('EXEC_DEFAULT', n_combinations=self.n_combinations)
-            bpy.ops.export_scene.export_avatar_combinations('EXEC_DEFAULT', export_path=self.export_path)
-        except RuntimeError as e:
-            self.report({'ERROR'}, str(e))
-            return {'CANCELLED'}
+            # ToDo: Use low-level API for export, not ops.
+            bpy.ops.export_scene.gltf(filepath=str(file_path), use_selection=True, check_existing=False)
+            feedback.append(Feedback(type='INFO', msg=f"Exported combination to {file_path}."))
+        except IOError as e:
+            # Warn, an error would abort all other files as well.
+            feedback.append(Feedback(type='WARNING', msg=f"Failed to export file {file_path}.\n{str(e)}"))
+            continue
 
-        return {'FINISHED'}
-
-    def invoke(self, context, event):
-        self.import_path = context.scene.import_root_path
-        self.export_path = context.scene.export_path
-        self.n_combinations = context.scene.n_component_combinations
-        self.use_texture_variants = context.scene.use_import_texture_variants
-        self.use_only_matching_sets = context.scene.use_only_matching_sets
-        return self.execute(context)
+    objops.deselect_all()
+    context.view_layer.objects.active = None
+    return feedback
