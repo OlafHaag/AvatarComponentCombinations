@@ -64,10 +64,35 @@ def import_sort_files(context) -> List[tuple]:
             feedback.append(Feedback(type='ERROR', msg=f"File {import_file.path} could not be imported."))
             continue
         file_name = Path(bpy.path.abspath(import_file.path)).stem
-        objects = context.active_object.children
+        fname_tags = fops.parse_file_name(file_name)
+        # In our case, the imported meshes don't have very meaningful names. Standardize with file-name tags.
+        if fname_tags["region"] == "undefined":
+            fname_tags["region"] = import_file.category
+
+        # If there are multiple meshes in the imported file, join them. We only expect single components per file.
+        # The imported asset is automatically made active. Expected to be the armature.
+        try:
+            objects = list(context.active_object.children)
+        except AttributeError:  # In case this FBX is empty or animation data only.
+            feedback.append(Feedback(type='WARNING', msg=f"No objects imported from {import_file.path}."))
+            continue
+
+        if len(objects) > 1:
+            obj = objops.join_objects(context, objects)
+            if obj is None:
+                feedback.append(Feedback(type='WARNING', msg=f"Joining meshes has failed for: {import_file.path}."))
+                context.scene.collection_map["_failed"].collection.objects.link(context.active_object)
+                context.scene.collection.objects.unlink(context.active_object)
+                # ToDo: Move children as well? Currently, I have no such data to test on.
+                continue
+        elif len(objects) == 1:
+            obj = objects[0]
+        else:  # No meshes, possibly only an armature.
+            obj = None
+
         # The first armature that comes in will serve as base for all further imported assets.
         if armature:
-            # Get rid of redundant armature. The imported asset is automatically made active.
+            # Get rid of redundant armature.
             objops.remove_object(context.active_object)
         elif context.active_object.type == 'ARMATURE':
             armature = context.active_object
@@ -75,21 +100,17 @@ def import_sort_files(context) -> List[tuple]:
             armature_suffix = fops.get_skeleton_type(file_name)
             armature.name = "-".join(("Armature", armature_suffix)).strip("-")  # Strip "-" if there's no suffix.
 
-        for obj in objects:  # There's usually only 1 child.
-            # ToDo: Refactor inner loop code to handle a single object into its own function.
+        if obj:
+            # ToDo: Refactor inner code code to handle a single object into its own function.
             # Save source file property on imported objects.
             obj.src_file = import_file.path
-            # In our case the imported meshes don't have very meaningful names. Standardize with file-name tags.
-            fname_tags = fops.parse_file_name(file_name)
-            if fname_tags["region"] == "undefined":
-                fname_tags["region"] = import_file.category
             obj.name = fops.tags_to_name(fname_tags)
             obj.data.name = "_".join(("MESH", obj.name))  # Mesh name.
-            # Name materials accoding to their object.
+            # Name materials according to their object.
             # ToDo: Handle materials that are shared between objects. Not the case, for now.
             for material in mops.get_materials(obj):  # There's usually only 1 material.
                 material.name = "_".join(("MAT", obj.name))  # If the object has multiple materials they'll be numbered.
-
+                # ToDo: Import texture variants.
             # Sort object into a collection, and out of the scene's root collection.
             context.scene.collection.objects.unlink(obj)
             # We want everything to be deformed by the same armature.

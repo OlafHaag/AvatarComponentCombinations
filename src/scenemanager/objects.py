@@ -19,6 +19,8 @@
 # <pep8 compliant>
 
 from typing import (Any,
+                    Optional,
+                    List,
                     Generator
                     )
 import bpy
@@ -77,3 +79,30 @@ def set_armature(obj: bpy.types.Object, armature: bpy.types.Object) -> bool:
     else:
         return False
     return True
+
+
+def join_objects(context, objects: List[bpy.types.Object]) -> Optional[bpy.types.Object]:
+    """Join objects without changing selection or active object.
+
+    :param context: Blender's context.
+    :type context: bpy.types.Context
+    :param objects: Objects to join together. The first item will be joined by the others.
+    :type objects: List[bpy.types.Object]
+    :return: The resultung joined object or None if joining was not successful.
+    :rtype: Optional[bpy.types.Object]
+    """
+    # The join-operator works on selected objects and we don't wat to alter the selection. So change the context.
+    ctx = context.copy()
+    # We can only join MESH types.
+    objs = [obj for obj in objects if obj.type == 'MESH']
+    # The join-operator needs an active object. Take the first one.
+    try:
+        ctx.view_layer.objects.active = objs[0]
+    except IndexError:
+        return None
+    ctx['selected_editable_objects'] = objs
+    res = bpy.ops.object.join(ctx)
+    if res == {'FINISHED'}:
+        return ctx['active_object']
+    else:
+        return None
