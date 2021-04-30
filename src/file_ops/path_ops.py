@@ -27,7 +27,7 @@ from typing import (List,
 
 import bpy
 
-from ..scenemanager.materials import parse_img_name
+from .. import Tags
 
 
 def get_subfolders(parent_path: Union[Path, str]) -> List[str]:
@@ -61,7 +61,7 @@ def get_filepaths(parent_path: Union[Path, str], ext: str = "fbx") -> List[Path]
     return file_paths
 
 
-def parse_file_name(file_name: str, sep: str = "-") -> Dict:
+def parse_file_name(file_name: str, sep: str = "-", is_image: bool = False) -> Dict:
     """Extract parts of a file name and map them to tags.
 
     Tags are: type, skeleton, theme, variant, mesh, region.
@@ -72,21 +72,25 @@ def parse_file_name(file_name: str, sep: str = "-") -> Dict:
     :type file_name: str
     :param sep: Character that seperates tags in the name.
     :types sep: str
+    :param is_image: Whether the file is an image and has the map-tag.
+    :type is_image: bool, optional
     :return: Mapping of tags to values found in the file name.
     :rtype: Dict
     """
     # e.g.: "outfit-f-casual-01-v2-bottom.fbx" versus "fullbody-f-set-01.fbx".
     parts = file_name.lower().split(".")[0].split(sep)
-    tags = ["type", "skeleton", "theme", "variant", "mesh", "region"]
     # Map file name parts to the tags.
-    props = dict(zip(tags, parts))
+    props = dict(zip(Tags, parts))
     # Set defaults if a tag is missing.
-    props.setdefault("type", "undefined")
-    props.setdefault("skeleton", "x")
-    props.setdefault("theme", "generic")
-    props.setdefault("variant", "01")  # Map set.
-    props.setdefault("mesh", "v1")  # Mesh variant?
-    props.setdefault("region", "undefined")
+    props.setdefault(Tags.TYPE, "undefined")
+    props.setdefault(Tags.SKELETON, "x")
+    props.setdefault(Tags.THEME, "generic")
+    props.setdefault(Tags.VARIANT, "01")  # Map set.
+    props.setdefault(Tags.MESH, "v1")  # Mesh variant?
+    props.setdefault(Tags.REGION, "undefined")
+    if is_image:
+        props.setdefault(Tags.MAP, "D")  # Diffuse/Albedo map is most likely.
+        props[Tags.MAP] = props[Tags.MAP].upper()
     return props
 
 
@@ -100,13 +104,7 @@ def tags_to_name(tags: Dict, sep: str = "-") -> str:
     :return: Descriptor based on tags.
     :rtype: str
     """
-    new_name = sep.join((tags["type"],
-                         tags["skeleton"],
-                         tags["theme"],
-                         tags["variant"],
-                         tags["mesh"],
-                         tags["region"],
-                         ))
+    new_name = sep.join((tags[t] for t in Tags if t in tags))
     return new_name
 
 
@@ -119,13 +117,13 @@ def get_skeleton_type(file_name: str) -> str:
     :rtype: str
     """
     try:
-        skeleton_type = parse_file_name(file_name)["skeleton"]
+        skeleton_type = parse_file_name(file_name)[Tags.SKELETON]
     except KeyError:
         return ""
     return skeleton_type
 
 
-def get_img_variants(img_name: str, path: Path) -> List:
+def get_img_variants(img_name: str, path: Path, exclude_current: bool = False) -> Dict[str, List]:
     """Find files like this with another variant tag or map-type. Found files are grouped by variant tag.
 
     :param img_name: Image name to base search on. Must follow naming convention
@@ -133,15 +131,23 @@ def get_img_variants(img_name: str, path: Path) -> List:
     :type img_name: str
     :param path: Folder path to inspect for images.
     :type path: Path
-    :return: Found images grouped by the variant. List of lists.
-    :rtype: List
+    :param exclude_current: Whether to exclude the given variant from returned groups.
+    :type exclude_current: bool
+    :return: Found image paths grouped by the variant.
+    :rtype: Dict[str, List]
     """
     # Gather tags from name to form a pattern to look for.
-    p = parse_img_name(img_name)
-    pattern = f"{p['type']}-{p['skeleton']}-{p['theme']}-??-{p['mesh']}-{p['region']}-?.*"  # Vary variant and map.
+    p = parse_file_name(img_name, is_image=True)  # Note: If img_name does not follow convention, this alters the tags.
+    # Vary variant and map.
+    pattern = f"{p[Tags.TYPE]}-{p[Tags.SKELETON]}-{p[Tags.THEME]}-??-{p[Tags.MESH]}-{p[Tags.REGION]}-?.*"
     variants = path.glob(pattern)  # Includes the current image variant.
     # Group by variant.
-    groups = itertools.groupby(variants, lambda x: parse_img_name(x.stem)['variant'])
-    grouped_variants = [list(group) for key, group in groups]
-    # Todo Exclude current variant? Or are we also looking for other maps (D, A, E, M, R, O, N)?
+    groups = itertools.groupby(sorted(variants), lambda x: parse_file_name(x.stem, is_image=True)[Tags.VARIANT])
+    grouped_variants = {key: list(group) for key, group in groups}
+    # Exclude current variant? We could also be looking for other maps (D, A, E, M, R, O, N) and not exclude.
+    if exclude_current:
+        try:  # An empty dictionary or an incorrect map type due to violation of conventions lead to KeyErrors.
+            del grouped_variants[p[Tags.VARIANT]]
+        except KeyError:
+            pass
     return grouped_variants

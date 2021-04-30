@@ -20,7 +20,6 @@
 
 from pathlib import Path
 from typing import (List,
-                    Dict,
                     )
 import bpy
 
@@ -60,31 +59,23 @@ def get_img_filepath(img_node: bpy.types.ShaderNodeTexImage) -> Path:
     return Path(bpy.path.abspath(img_node.image.filepath))
 
 
-def parse_img_name(img_name: str, sep: str = "-") -> Dict:
-    """Extract parts of an image name and map them to tags.
+def replace_img(node: bpy.types.Image, img_path: Path):
+    """Replace the image in an image texture node by a new image from disk.
 
-    Tags are: type, skeleton, theme, variant, mesh, region, map.
-    Names must consist of these tags in that order connected by a seperator.
-    Names are parsed from start to end. If a name contains fewer tags, defaults will be set.
+    The previous image will remain in the data.
 
-    :param file_name: Image name, with or without its extension.
-    :type file_name: str
-    :param sep: Character that seperates tags in the name.
-    :types sep: str
-    :return: Mapping of tags to values found in the image name.
-    :rtype: Dict
+    :param node: Image Texture Node for which to replace the image.
+    :type node: bpy.types.Image
+    :param img_path: Filepath to new image.
+    :type img_path: Path
     """
-    # e.g.: "outfit-f-casual-01-v2-bottom-R.jpg"
-    parts = img_name.lower().split(".")[0].split(sep)
-    tags = ["type", "skeleton", "theme", "variant", "mesh", "region", "map"]
-    # Map image name parts to the tags.
-    props = dict(zip(tags, parts))
-    # Set defaults if a tag is missing.
-    props.setdefault("type", "undefined")
-    props.setdefault("skeleton", "x")
-    props.setdefault("theme", "generic")
-    props.setdefault("variant", "01")  # Maps set.
-    props.setdefault("mesh", "v1")  # UV Map variant?
-    props.setdefault("region", "undefined")
-    props.setdefault("map", "D")  # Diffuse/Albedo map is most likely.
-    return props
+    new_img = node.image.copy()
+    new_img.name = bpy.path.display_name_from_filepath(str(img_path))
+    new_img.filepath = img_path
+    try:
+        new_img.unpack(method='REMOVE')
+    except RuntimeError:
+        pass
+    new_img.reload()
+    new_img.pack()
+    node.image = new_img

@@ -18,6 +18,8 @@
 
 # <pep8 compliant>
 
+from enum import Enum
+
 import bpy
 from . import auto_load
 
@@ -33,6 +35,18 @@ bl_info = {
     "tracker_url": "https://github.com/OlafHaag/AvatarComponentCombinations/issues",
     "category": "Import-Export"
 }
+
+
+class Tags(Enum):
+    """Constants to help with the naming convention."""
+
+    TYPE = "type"
+    SKELETON = "skeleton"
+    THEME = "theme"
+    VARIANT = "variant"
+    MESH = "mesh"
+    REGION = "region"
+    MAP = "map"
 
 
 class ImportFilePath(bpy.types.PropertyGroup):

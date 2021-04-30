@@ -33,6 +33,7 @@ from . import materials as mops  # Kinda like Houdini lingo :)
 from . import objects as objops
 from . import scenesetup as setup
 from .. import file_ops as fops
+from .. import Tags
 
 
 # Create new helper-class to transport messages from functions to operators for displaying them in the GUI.
@@ -63,8 +64,8 @@ def import_sort_files(context) -> List[tuple]:
         file_name = Path(bpy.path.abspath(import_file.path)).stem
         fname_tags = fops.parse_file_name(file_name)
         # In our case, the imported meshes don't have very meaningful names. Standardize with file-name tags.
-        if fname_tags["region"] == "undefined":
-            fname_tags["region"] = import_file.category
+        if fname_tags[Tags.REGION] == "undefined":
+            fname_tags[Tags.REGION] = import_file.category
 
         # If there are multiple meshes in the imported file, join them. We only expect single components per file.
         # The imported asset is automatically made active. Expected to be the armature.
@@ -107,17 +108,17 @@ def import_sort_files(context) -> List[tuple]:
             # ToDo: Handle materials that are shared between objects. Not the case, for now.
             for material in mops.get_materials(obj):  # There's usually only 1 material.
                 material.name = "_".join(("MAT", obj.name))  # If the object has multiple materials they'll be numbered.
-                # ToDo: Import texture variants.
+
             # Sort object into a collection, and out of the scene's root collection.
             context.scene.collection.objects.unlink(obj)
             # We want everything to be deformed by the same armature.
             if not objops.set_armature(obj, armature):
                 feedback.append(Feedback(type='WARNING', msg=f"Failed to set shared armature for {file_name}."))
                 context.scene.collection_map["_failed"].collection.objects.link(obj)
-            elif fname_tags["skeleton"] != armature_suffix:
+            elif fname_tags[Tags.SKELETON] != armature_suffix:
                 feedback.append(Feedback(type='WARNING', msg=f"Armature mismatch detected for {file_name}."))
                 context.scene.collection_map["_failed"].collection.objects.link(obj)
-            elif fname_tags["region"] != import_file.category:
+            elif fname_tags[Tags.REGION] != import_file.category:
                 feedback.append(Feedback(type='WARNING', msg=f"Region mismatch detected for {file_name}."))
                 context.scene.collection_map["_failed"].collection.objects.link(obj)
             else:
