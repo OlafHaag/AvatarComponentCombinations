@@ -57,5 +57,8 @@ def load_fbx(context, file_path: Union[Path, str], **keywords) -> List[tuple]:
         file_path = str(file_path)
 
     dummy_op = DummyOperator()
-    ret = import_fbx.load(dummy_op, context, filepath=file_path, **keywords)  # Either {'FINISHED'} or {'CANCELLED'}.
+    try:
+        import_fbx.load(dummy_op, context, filepath=file_path, **keywords)  # Either {'FINISHED'} or {'CANCELLED'}.
+    except IOError:
+        dummy_op.messages.append(('ERROR', f"Failed to load file: {file_path}"))
     return dummy_op.messages

@@ -56,12 +56,9 @@ def import_sort_files(context) -> List[tuple]:
     feedback = list()
     armature = None
     for import_file in context.scene.import_files:
-        try:
-            ret_msgs = fops.load_fbx(context, file_path=import_file.path, ignore_leaf_bones=True)
-            if ret_msgs:
-                feedback.extend([Feedback(*msg) for msg in ret_msgs])
-        except IOError:
-            feedback.append(Feedback(type='ERROR', msg=f"File {import_file.path} could not be imported."))
+        ret_msgs = fops.load_fbx(context, file_path=import_file.path, ignore_leaf_bones=True)
+        feedback.extend([Feedback(*msg) for msg in ret_msgs])
+        if 'ERROR' in [msg for msg, _ in ret_msgs]:
             continue
         file_name = Path(bpy.path.abspath(import_file.path)).stem
         fname_tags = fops.parse_file_name(file_name)
