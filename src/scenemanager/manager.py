@@ -82,7 +82,7 @@ def import_sort_files(context) -> List[tuple]:
             obj = objops.join_objects(context, objects)
             if obj is None:
                 feedback.append(Feedback(type='WARNING', msg=f"Joining meshes has failed for: {import_file.path}."))
-                context.scene.collection_map[CollNames.FAILED].collection.objects.link(context.active_object)
+                context.scene.collection_map[str(CollNames.FAILED)].collection.objects.link(context.active_object)
                 context.scene.collection.objects.unlink(context.active_object)
                 # ToDo: Move children as well? Currently, I have no such data to test on.
                 continue
@@ -117,19 +117,19 @@ def import_sort_files(context) -> List[tuple]:
             # We want everything to be deformed by the same armature.
             if not objops.set_armature(obj, armature):
                 feedback.append(Feedback(type='WARNING', msg=f"Failed to set shared armature for {file_name}."))
-                context.scene.collection_map[CollNames.FAILED].collection.objects.link(obj)
+                context.scene.collection_map[str(CollNames.FAILED)].collection.objects.link(obj)
             elif fname_tags[Tags.SKELETON] != armature_suffix:
                 feedback.append(Feedback(type='WARNING', msg=f"Armature mismatch detected for {file_name}."))
-                context.scene.collection_map[CollNames.FAILED].collection.objects.link(obj)
+                context.scene.collection_map[str(CollNames.FAILED)].collection.objects.link(obj)
             elif fname_tags[Tags.REGION] != import_file.category:
                 feedback.append(Feedback(type='WARNING', msg=f"Region mismatch detected for {file_name}."))
-                context.scene.collection_map[CollNames.FAILED].collection.objects.link(obj)
+                context.scene.collection_map[str(CollNames.FAILED)].collection.objects.link(obj)
             else:
                 # Sort objects into their respective collection by the category associated with their path.
                 context.scene.collection_map[import_file.category].collection.objects.link(obj)
 
     if armature:
-        context.scene.collection_map[CollNames.MANDATORY].collection.objects.link(armature)
+        context.scene.collection_map[str(CollNames.MANDATORY)].collection.objects.link(armature)
         context.scene.collection.objects.unlink(armature)
 
     # Since we deleted the last active object, set a new one (or None).
@@ -185,12 +185,12 @@ def draw_combinations(context, n: int = 10) -> List:
     :rtype: List
     """
     try:
-        cat_collection_list = list(context.scene.collection_map[CollNames.SOURCE].collection.children)
+        cat_collection_list = list(context.scene.collection_map[str(CollNames.SOURCE)].collection.children)
         # Don't include failed and ignored components in combinations.
-        cat_collection_list.remove(context.scene.collection_map[CollNames.IGNORE].collection)
-        cat_collection_list.remove(context.scene.collection_map[CollNames.FAILED].collection)
+        cat_collection_list.remove(context.scene.collection_map[str(CollNames.IGNORE)].collection)
+        cat_collection_list.remove(context.scene.collection_map[str(CollNames.FAILED)].collection)
         # Special case for mandatory assets in each combination.
-        mandatory_collection = context.scene.collection_map[CollNames.MANDATORY].collection
+        mandatory_collection = context.scene.collection_map[str(CollNames.MANDATORY)].collection
     except KeyError:  # Scene is not setup correctly.
         print("WARNING: Scene is not initialized properly. Abort.")  # ToDo: Proper warning with logging.
         return []
@@ -224,7 +224,7 @@ def add_combinations_to_export(context, n_combinations: int = 10) -> List[tuple]
         feedback.append(Feedback(type='ERROR', msg="Combining avatar components failed."))
         return feedback
     try:
-        export_collection = context.scene.collection_map[CollNames.EXPORT].collection
+        export_collection = context.scene.collection_map[str(CollNames.EXPORT)].collection
     except KeyError:
         feedback.append(Feedback(type='ERROR', msg="Scene is not initialized properly. Missing export collection."))
         return feedback
@@ -255,7 +255,7 @@ def export_combinations(context, export_path: Union[Path, str]) -> List[tuple]:
     """
     feedback = list()
     try:
-        export_collections = context.scene.collection_map[CollNames.EXPORT].collection.children
+        export_collections = context.scene.collection_map[str(CollNames.EXPORT)].collection.children
     except KeyError:
         feedback.append(Feedback(type='ERROR', msg="Scene is not initialized properly. Missing export collection."))
         return feedback

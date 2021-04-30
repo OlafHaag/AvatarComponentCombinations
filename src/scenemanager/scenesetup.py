@@ -55,13 +55,13 @@ def create_initial_collections(scene: Optional[bpy.types.Scene] = None) -> Dict[
     if not scene:
         scene = bpy.context.scene
     # Create new collections.
-    src_collection = bpy.data.collections.new(CollNames.SOURCE)
+    src_collection = bpy.data.collections.new(str(CollNames.SOURCE))
     src_collection.hide_render = True
-    failed_collection = bpy.data.collections.new(CollNames.FAILED)
-    ignore_collection = bpy.data.collections.new(CollNames.IGNORE)
+    failed_collection = bpy.data.collections.new(str(CollNames.FAILED))
+    ignore_collection = bpy.data.collections.new(str(CollNames.IGNORE))
     ignore_collection.hide_viewport = True
-    mandatory_collection = bpy.data.collections.new(CollNames.MANDATORY)
-    export_collection = bpy.data.collections.new(CollNames.EXPORT)
+    mandatory_collection = bpy.data.collections.new(str(CollNames.MANDATORY))
+    export_collection = bpy.data.collections.new(str(CollNames.EXPORT))
     # Link newly created collections to the respective parent.
     scene.collection.children.link(src_collection)
     src_collection.children.link(failed_collection)
@@ -133,7 +133,7 @@ def set_collection_map_as_property(scene: bpy.types.Scene, collection_map: Dict[
             # ToDo: What about old collection in properties, if it's a different one?
         else:
             col_map = scene.collection_map.add()
-            col_map.name = key
+            col_map.name = str(key)
         col_map.collection = collection
     return True
 

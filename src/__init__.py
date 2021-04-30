@@ -40,6 +40,12 @@ bl_info = {
 class Tags(Enum):
     """Constants to help with the naming convention."""
 
+    def __str__(self):
+        return str(self.value)
+
+    def __repr__(self):
+        return str(self.value)
+
     TYPE = "type"
     SKELETON = "skeleton"
     THEME = "theme"
@@ -51,6 +57,12 @@ class Tags(Enum):
 
 class CollNames(Enum):
     """Names of standard/initial collections."""
+
+    def __str__(self):
+        return str(self.value)
+
+    def __repr__(self):
+        return str(self.value)
 
     SOURCE = "src"
     FAILED = "_failed"
@@ -70,7 +82,7 @@ class ImportFilePath(bpy.types.PropertyGroup):
     category: bpy.props.StringProperty(
         name="Category",
         description="Component category this file belongs to.",
-        default=CollNames.FAILED,
+        default="_failed",  # Can't use enum here.
     )
 
 
