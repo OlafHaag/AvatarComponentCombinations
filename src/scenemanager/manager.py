@@ -36,6 +36,9 @@ from .. import file_ops as fops
 from .. import Tags
 from .. import CollNames
 
+MAT_PREFIX = "MAT_"
+MESH_PREFIX = "MESH_"
+
 # Create new helper-class to transport messages from functions to operators for displaying them in the GUI.
 Feedback = namedtuple("Feedback", ["type", "msg"])
 
@@ -103,11 +106,11 @@ def import_sort_files(context) -> List[tuple]:
             # Save source file property on imported objects.
             obj.src_file = import_file.path
             obj.name = fops.tags_to_name(fname_tags)
-            obj.data.name = "_".join(("MESH", obj.name))  # Mesh name.
+            obj.data.name = MESH_PREFIX + obj.name  # Mesh name.
             # Name materials according to their object.
             # ToDo: Handle materials that are shared between objects. Not the case, for now.
             for material in mops.get_materials(obj):  # There's usually only 1 material.
-                material.name = "_".join(("MAT", obj.name))  # If the object has multiple materials they'll be numbered.
+                material.name = MAT_PREFIX + obj.name  # If the object has multiple materials they'll be numbered.
 
             # Sort object into a collection, and out of the scene's root collection.
             context.scene.collection.objects.unlink(obj)
