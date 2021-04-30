@@ -28,6 +28,7 @@ import bpy
 
 from . import objects as objops
 from .. import file_ops as fops
+from .. import CollNames
 
 
 def create_new_scene(scene_name: str = 'Avatar Component Combinations') -> bpy.types.Scene:
@@ -54,13 +55,13 @@ def create_initial_collections(scene: Optional[bpy.types.Scene] = None) -> Dict[
     if not scene:
         scene = bpy.context.scene
     # Create new collections.
-    src_collection = bpy.data.collections.new('src')
+    src_collection = bpy.data.collections.new(CollNames.SOURCE)
     src_collection.hide_render = True
-    failed_collection = bpy.data.collections.new('_failed')
-    ignore_collection = bpy.data.collections.new('_ignore')
+    failed_collection = bpy.data.collections.new(CollNames.FAILED)
+    ignore_collection = bpy.data.collections.new(CollNames.IGNORE)
     ignore_collection.hide_viewport = True
-    mandatory_collection = bpy.data.collections.new('_mandatory')
-    export_collection = bpy.data.collections.new('export')
+    mandatory_collection = bpy.data.collections.new(CollNames.MANDATORY)
+    export_collection = bpy.data.collections.new(CollNames.EXPORT)
     # Link newly created collections to the respective parent.
     scene.collection.children.link(src_collection)
     src_collection.children.link(failed_collection)
@@ -75,11 +76,11 @@ def create_initial_collections(scene: Optional[bpy.types.Scene] = None) -> Dict[
     export_collection.color_tag = 'COLOR_04'  # Greenlit for export.
 
     # Collection names are not guaranteed. Keep a mapping between intended names and collection references.
-    collections = {"src": src_collection,
-                   "_failed": failed_collection,
-                   "_ignore": ignore_collection,
-                   "_mandatory": mandatory_collection,
-                   "export": export_collection}
+    collections = {CollNames.SOURCE: src_collection,
+                   CollNames.FAILED: failed_collection,
+                   CollNames.IGNORE: ignore_collection,
+                   CollNames.MANDATORY: mandatory_collection,
+                   CollNames.EXPORT: export_collection}
     return collections
 
 
@@ -193,7 +194,7 @@ def init_import_scene(import_path: Union[Path, str], use_new_scene: bool = True)
         return False
     # Create component categories.
     categories = fops.get_subfolders(import_path)
-    cat_collections = create_collections(categories, parent=init_collections['src'])
+    cat_collections = create_collections(categories, parent=init_collections[CollNames.SOURCE])
     if not set_collection_map_as_property(scene, cat_collections):  # No category collections?
         return False
     if not set_importfiles_props(scene):  # Scene not initialized or no files found?

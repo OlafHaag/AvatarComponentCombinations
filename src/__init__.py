@@ -49,6 +49,16 @@ class Tags(Enum):
     MAP = "map"
 
 
+class CollNames(Enum):
+    """Names of standard/initial collections."""
+
+    SOURCE = "src"
+    FAILED = "_failed"
+    IGNORE = "_ignore"
+    MANDATORY = "_mandatory"
+    EXPORT = "export"
+
+
 class ImportFilePath(bpy.types.PropertyGroup):
     """Property that saves a file-path for a file that shall be imported."""
 
@@ -60,7 +70,7 @@ class ImportFilePath(bpy.types.PropertyGroup):
     category: bpy.props.StringProperty(
         name="Category",
         description="Component category this file belongs to.",
-        default="_failed",
+        default=CollNames.FAILED,
     )
 
 
