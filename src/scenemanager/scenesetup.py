@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import (Optional,
                     Union,
                     Dict,
+                    Iterable,
                     List,
                     )
 import bpy
@@ -45,6 +46,20 @@ def create_new_scene(scene_name: str = 'Avatar Component Combinations') -> bpy.t
     return new_scene
 
 
+def link_to_parent(children: Union[bpy.types.Collection, Iterable[bpy.types.Collection]], parent: bpy.types.Collection):
+    """Link collection or collections to a parent collection.
+
+    :param children: Collection(s) to be  linked to parent collection.
+    :type children: Union[bpy.types.Collection, Iterable[bpy.types.Collection]]
+    :param parent: Parent collection.
+    :type parent: bpy.types.Collection
+    """
+    if not isinstance(children, Iterable):
+        children = [children]
+    for child in children:
+        parent.children.link(child)
+
+
 def create_initial_collections(scene: Optional[bpy.types.Scene] = None) -> Dict[str, bpy.types.Collection]:
     """Create source and export collections, as well as failed, ignore, and mandatory subcollections in source.
 
@@ -55,32 +70,18 @@ def create_initial_collections(scene: Optional[bpy.types.Scene] = None) -> Dict[
     if not scene:
         scene = bpy.context.scene
     # Create new collections.
-    src_collection = bpy.data.collections.new(str(CollNames.SOURCE))
-    src_collection.hide_render = True
-    failed_collection = bpy.data.collections.new(str(CollNames.FAILED))
-    ignore_collection = bpy.data.collections.new(str(CollNames.IGNORE))
-    ignore_collection.hide_viewport = True
-    mandatory_collection = bpy.data.collections.new(str(CollNames.MANDATORY))
-    export_collection = bpy.data.collections.new(str(CollNames.EXPORT))
-    # Link newly created collections to the respective parent.
-    scene.collection.children.link(src_collection)
-    src_collection.children.link(failed_collection)
-    src_collection.children.link(ignore_collection)
-    src_collection.children.link(mandatory_collection)
-    scene.collection.children.link(export_collection)
-    # Color them for easy identification.
-    src_collection.color_tag = 'COLOR_05'
-    failed_collection.color_tag = 'COLOR_01'  # Give red warning color.
-    ignore_collection.color_tag = 'COLOR_02'
-    mandatory_collection.color_tag = 'COLOR_03'
-    export_collection.color_tag = 'COLOR_04'  # Greenlit for export.
+    collections = create_collections([CollNames.SOURCE, CollNames.EXPORT], parent=scene.collection)
+    collections.update(create_collections([CollNames.FAILED, CollNames.IGNORE, CollNames.MANDATORY],
+                                          parent=collections[CollNames.SOURCE]))
 
-    # Collection names are not guaranteed. Keep a mapping between intended names and collection references.
-    collections = {CollNames.SOURCE: src_collection,
-                   CollNames.FAILED: failed_collection,
-                   CollNames.IGNORE: ignore_collection,
-                   CollNames.MANDATORY: mandatory_collection,
-                   CollNames.EXPORT: export_collection}
+    collections[CollNames.SOURCE].hide_render = True
+    collections[CollNames.IGNORE].hide_viewport = True
+    # Color them for easy identification.
+    collections[CollNames.SOURCE].color_tag = 'COLOR_05'  # Blue.
+    collections[CollNames.FAILED].color_tag = 'COLOR_01'  # Give red warning color.
+    collections[CollNames.IGNORE].color_tag = 'COLOR_02'  # Orange.
+    collections[CollNames.MANDATORY].color_tag = 'COLOR_03'  # Yellow.
+    collections[CollNames.EXPORT].color_tag = 'COLOR_04'  # Greenlit for export.
     return collections
 
 
@@ -98,13 +99,10 @@ def create_collections(names: List[str],
     :return: Mapping of intended names to references for newly created collections.
     :rtype: Dict[str, bpy.types.Collection]
     """
-    collections = {n: bpy.data.collections.new(n) for n in names}
-    # Make sure we link the collections to a parent.
-    if not parent:
-        parent = bpy.context.scene.collection  # "Master Collection" of current scene.
-    for collection in collections.values():
-        parent.children.link(collection)
-
+    collections = {n: bpy.data.collections.new(str(n)) for n in names}
+    # If not linked to a parent, new collections will only live in Blender’s internal data.
+    if parent:
+        link_to_parent(collections.values(), parent)
     return collections
 
 

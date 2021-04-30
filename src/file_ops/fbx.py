@@ -33,7 +33,7 @@ class DummyOperator():
     """Dummy to provide the report method used by import_fbx.load method."""
 
     def __init__(self):
-        self.messages = list()
+        self.messages = []
 
     def report(self, type, message):
         """Catch messages instead of reporting them."""

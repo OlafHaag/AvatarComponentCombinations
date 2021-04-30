@@ -57,8 +57,7 @@ def get_filepaths(parent_path: Union[Path, str], ext: str = "fbx") -> List[Path]
     """
     if isinstance(parent_path, str):
         parent_path = Path(bpy.path.abspath(parent_path))
-    file_paths = [f for f in parent_path.glob(f"**/**/*.{ext}")]
-    return file_paths
+    return list(parent_path.glob(f"**/**/*.{ext}"))
 
 
 def parse_file_name(file_name: str, sep: str = "-", is_image: bool = False) -> Dict:
@@ -104,8 +103,7 @@ def tags_to_name(tags: Dict, sep: str = "-") -> str:
     :return: Descriptor based on tags.
     :rtype: str
     """
-    new_name = sep.join((tags[t] for t in Tags if t in tags))
-    return new_name
+    return sep.join((tags[t] for t in Tags if t in tags))
 
 
 def get_skeleton_type(file_name: str) -> str:

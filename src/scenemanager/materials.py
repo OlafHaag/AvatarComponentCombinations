@@ -32,8 +32,7 @@ def get_materials(obj: bpy.types.Object) -> List:
     :return: Materials.
     :rtype: List
     """
-    materials = [mat_slot.material for mat_slot in obj.material_slots]
-    return materials
+    return [mat_slot.material for mat_slot in obj.material_slots]
 
 
 def get_img_nodes(material: bpy.types.Material) -> List:
@@ -44,8 +43,11 @@ def get_img_nodes(material: bpy.types.Material) -> List:
     :return: Texture Image shader nodes in the material.
     :rtype: List
     """
-    tex_nodes = [node for node in material.node_tree.nodes.values() if node.type == 'TEX_IMAGE']
-    return tex_nodes
+    return [
+        node
+        for node in material.node_tree.nodes.values()
+        if node.type == 'TEX_IMAGE'
+    ]
 
 
 def get_img_filepath(img_node: bpy.types.ShaderNodeTexImage) -> Path:

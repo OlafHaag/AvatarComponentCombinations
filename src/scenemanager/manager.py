@@ -27,7 +27,6 @@ from typing import (Union,
                     List,
                     )
 import bpy
-from bpy.types import Key
 
 from . import materials as mops  # Kinda like Houdini lingo :)
 from . import objects as objops
@@ -57,7 +56,7 @@ def import_sort_files(context) -> List[tuple]:
     :return: Error messages.
     :rtype: List[tuple]
     """
-    feedback = list()
+    feedback = []
     armature = None
     for import_file in context.scene.import_files:
         ret_msgs = fops.load_fbx(context, file_path=import_file.path, ignore_leaf_bones=True)
@@ -151,7 +150,7 @@ def batch_import_components(context, path: Union[Path, str], use_new_scene: bool
     :return: Error messages.
     :rtype: List[tuple]
     """
-    feedback = list()
+    feedback = []
     # Save current settings to restore them in new scene later.
     export_path = context.scene.export_path
     n_combinations = context.scene.n_component_combinations
@@ -218,7 +217,7 @@ def add_combinations_to_export(context, n_combinations: int = 10) -> List[tuple]
     :return: Error messages.
     :rtype: List[tuple]
     """
-    feedback = list()
+    feedback = []
     combinations = draw_combinations(context, n_combinations)
     if not combinations:
         feedback.append(Feedback(type='ERROR', msg="Combining avatar components failed."))
@@ -253,7 +252,7 @@ def export_combinations(context, export_path: Union[Path, str]) -> List[tuple]:
     :return: Error messages.
     :rtype: List[tuple]
     """
-    feedback = list()
+    feedback = []
     try:
         export_collections = context.scene.collection_map[str(CollNames.EXPORT)].collection.children
     except KeyError:
