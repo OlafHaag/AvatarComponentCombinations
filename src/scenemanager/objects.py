@@ -45,6 +45,24 @@ def deselect_all() -> None:
         obj.select_set(False)
 
 
+def show_select_objects(objects: List[bpy.types.Object], context: Optional[bpy.types.Context] = None):
+    """Select given objects and deselects all others. Unhide selected objects. Disable active object.
+
+    :param objects: Objects to select.
+    :type objects: List[bpy.types.Object]
+    :param context: Context, defaults to current context. Used to unset active object.
+    :type context: Optional[bpy.types.Context], optional
+    """
+    deselect_all()
+    for obj in objects:
+        obj.hide_viewport = False
+        obj.hide_set(False)
+        obj.select_set(True)
+    if not context:
+        context = bpy.context
+    context.view_layer.objects.active = None
+
+
 def remove_object(obj: bpy.types.Object):
     """Remove object from scene.
 

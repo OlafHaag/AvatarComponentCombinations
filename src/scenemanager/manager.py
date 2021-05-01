@@ -63,7 +63,7 @@ def import_sort_files(context) -> List[tuple]:
         feedback.extend([Feedback(*msg) for msg in ret_msgs])
         if 'ERROR' in [msg for msg, _ in ret_msgs]:
             continue
-        file_name = Path(bpy.path.abspath(import_file.path)).stem
+        file_name = fops.get_abs_path(import_file.path).stem
         fname_tags = fops.parse_file_name(file_name)
         # In our case, the imported meshes don't have very meaningful names. Standardize with file-name tags.
         if fname_tags[Tags.REGION] == "undefined":
@@ -191,7 +191,7 @@ def draw_combinations(context, n: int = 10) -> List:
         # Special case for mandatory assets in each combination.
         mandatory_collection = context.scene.collection_map[str(CollNames.MANDATORY)].collection
     except KeyError:  # Scene is not setup correctly.
-        print("WARNING: Scene is not initialized properly. Abort.")  # ToDo: Proper warning with logging.
+        print("WARNING: Scene is not initialized properly. Abort.")
         return []
 
     # Remove the mandatory assets from combinations now and add them to everything later on.
@@ -203,8 +203,7 @@ def draw_combinations(context, n: int = 10) -> List:
     # Randomize arrangements and draw some combinations.
     # This makes sure the combinations are unique and we never draw more than actually exist.
     random.shuffle(product)
-    combinations = product[:n]
-    return combinations
+    return product[:n]
 
 
 def add_combinations_to_export(context, n_combinations: int = 10) -> List[tuple]:
@@ -228,18 +227,32 @@ def add_combinations_to_export(context, n_combinations: int = 10) -> List[tuple]
         feedback.append(Feedback(type='ERROR', msg="Scene is not initialized properly. Missing export collection."))
         return feedback
 
+    collections = []
     for combination in combinations:
-        # Set a name for the new export collection. All objects have the same armature, get its type from the first.
-        comp_string = " ".join(sorted([obj.name for obj in combination]))
-        suffix = hashlib.blake2s(comp_string.encode(), digest_size=8).hexdigest()  # 16 characters.
-        skeleton = fops.get_skeleton_type(combination[0].name)
-        collection_name = "-".join(("set", skeleton, suffix))
-        new_collection = bpy.data.collections.new(collection_name)
-        # Link object to collection.
-        for obj in combination:
-            new_collection.objects.link(obj)
-        export_collection.children.link(new_collection)
+        collection_name = get_combination_name(combination)
+        if not collection_name:
+            continue
+        new_collection = setup.objects_to_collection(combination, collection_name)
+        collections.append(new_collection)
+    setup.link_to_parent(collections, export_collection)
     return feedback
+
+
+def get_combination_name(objects: List[bpy.types.Object]) -> str:
+    """Create a unqique name based on objects' names.
+
+    :param objects: Objects that form a combination.
+    :type objects: List[bpy.types.Object]
+    :return: Unique name for the given combination of objects.
+    :rtype: str
+    """
+    if not objects:
+        return ""
+    # Set a name for the new collection. All objects have the same armature, get its type from the first.
+    comp_string = " ".join(sorted([obj.name for obj in objects]))
+    suffix = hashlib.blake2s(comp_string.encode(), digest_size=8).hexdigest()  # 16 characters.
+    skeleton = fops.get_skeleton_type(objects[0].name)
+    return "-".join(("set", skeleton, suffix))
 
 
 def export_combinations(context, export_path: Union[Path, str]) -> List[tuple]:
@@ -259,29 +272,38 @@ def export_combinations(context, export_path: Union[Path, str]) -> List[tuple]:
         feedback.append(Feedback(type='ERROR', msg="Scene is not initialized properly. Missing export collection."))
         return feedback
 
-    if not Path(bpy.path.abspath(str(export_path))).is_dir():
-        feedback.append(Feedback(type='ERROR', msg="Export destination is not a directory."))
-        return feedback
-
     for collection in export_collections:
-        # Export is based on object selections. First, deselect everything.
-        objops.deselect_all()
-        # Now only select objects in 1 export collection at any time.
-        for obj in collection.all_objects:
-            obj.hide_viewport = False
-            obj.hide_set(False)
-            obj.select_set(True)
-        context.view_layer.objects.active = None
-        file_path = (Path(bpy.path.abspath(str(export_path))) / collection.name.replace(".", "_")).with_suffix('.glb')
         try:
-            # ToDo: Use low-level API for export, not ops.
-            bpy.ops.export_scene.gltf(filepath=str(file_path), use_selection=True, check_existing=False)
-            feedback.append(Feedback(type='INFO', msg=f"Exported combination to {file_path}."))
+            file_path = write_collection(collection, export_path)
         except IOError as e:
             # Warn, an error would abort all other files as well.
-            feedback.append(Feedback(type='WARNING', msg=f"Failed to export file {file_path}.\n{str(e)}"))
+            feedback.append(Feedback(type='WARNING', msg=f"Failed to export combination {collection.name}.\n{str(e)}"))
             continue
+        feedback.append(Feedback(type='INFO', msg=f"Exported combination to {file_path}."))
 
     objops.deselect_all()
     context.view_layer.objects.active = None
     return feedback
+
+
+def write_collection(collection: bpy.types.Collection, path: Union[Path, str]) -> str:
+    """Export the objects in a collection to file.
+
+    :param collection: Collection to export. Its name will serve as the filename if the export path points to a folder.
+    :type collection: bpy.types.Collection
+    :param path: Where to save the file. If a directory is given, the file-name will be the collection's name.
+    :type path: Union[Path, str]
+    :return: File path to exported collection. Empty on failure.
+    :rtype: str
+    """
+    # Export is based on object selections and visibility.
+    objops.show_select_objects(collection.all_objects)
+    path = fops.get_abs_path(path)
+    if path.is_dir():
+        path = str((path / collection.name.replace(".", "_")).with_suffix('.glb'))
+    try:
+        ret = bpy.ops.export_scene.gltf(filepath=path, use_selection=True, check_existing=False)
+    except IOError:
+        ret = {'CANCELLED'}
+        raise
+    return path if ret != {'CANCELLED'} else ""

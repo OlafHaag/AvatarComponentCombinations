@@ -106,6 +106,24 @@ def create_collections(names: List[str],
     return collections
 
 
+def objects_to_collection(objects: List[bpy.types.Object], name: str) -> bpy.types.Collection:
+    """Create a collection and link objects to it.
+
+    If the list of objects is empty, the collection will be created anyway.
+    The new collection exists in Blender's internal data and is not yet linked to a parent collection.
+
+    :param objects: Objects to be linked to a new collection.
+    :type objects: List[bpy.types.Object]
+    :return: Reference to new collection.
+    :rtype: Optional[bpy.types.Collection]
+    """
+    collection = bpy.data.collections.new(name)
+    # Link object to collection.
+    for obj in objects:
+        collection.objects.link(obj)
+    return collection
+
+
 def set_collection_map_as_property(scene: bpy.types.Scene, collection_map: Dict[str, bpy.types.Collection]) -> bool:
     """Save a mapping between intended name of a collection and its reference as a scene property.
 
@@ -151,7 +169,7 @@ def set_importfiles_props(scene: Optional[bpy.types.Scene] = None, ext: str = "f
     # Remove old data.
     try:
         scene.import_files.clear()
-        root_path = Path(bpy.path.abspath(scene.import_root_path))
+        root_path = fops.get_abs_path(scene.import_root_path)
     except AttributeError:  # Scene does not have import_path_property. Should be set though by add-on registration.
         return False
     file_paths = fops.get_filepaths(root_path, ext=ext)
@@ -174,7 +192,7 @@ def init_import_scene(import_path: Union[Path, str], use_new_scene: bool = True)
     :return: Success of setting scene properties for preparing file imports.
     :rtype: bool|None
     """
-    if not Path(bpy.path.abspath(str(import_path))).is_dir():
+    if not fops.get_abs_path(import_path).is_dir():
         return None
     if use_new_scene:
         scene = create_new_scene()

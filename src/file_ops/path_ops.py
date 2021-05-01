@@ -30,6 +30,19 @@ import bpy
 from .. import Tags
 
 
+def get_abs_path(path: Union[str, Path]) -> Path:
+    """Get absolute path. Handles Blender's special path '//'.
+
+    :param path: Relative path or Blender's special path ('//').
+    :type path: Union[str, Path]
+    :return: Absolute path.
+    :rtype: Path
+    """
+    if isinstance(path, Path):
+        return path.resolve()
+    return Path(bpy.path.abspath(path)).resolve()
+
+
 def get_subfolders(parent_path: Union[Path, str]) -> List[str]:
     """Return names of first-level subfolders in given path.
 
@@ -38,8 +51,7 @@ def get_subfolders(parent_path: Union[Path, str]) -> List[str]:
     :return: List of subfolder names.
     :rtype: List[str]
     """
-    if isinstance(parent_path, str):
-        parent_path = Path(bpy.path.abspath(parent_path))
+    parent_path = get_abs_path(parent_path)
     # Do not include any hidden folders, usually indicated by starting with ".".
     subfolders = [f.name.lower() for f in parent_path.glob("*/") if f.is_dir() and not f.name.startswith(".")]
     return subfolders
@@ -55,8 +67,7 @@ def get_filepaths(parent_path: Union[Path, str], ext: str = "fbx") -> List[Path]
     :return: File paths.
     :rtype: List[Path]
     """
-    if isinstance(parent_path, str):
-        parent_path = Path(bpy.path.abspath(parent_path))
+    parent_path = get_abs_path(parent_path)
     return list(parent_path.glob(f"**/**/*.{ext}"))
 
 
