@@ -18,10 +18,10 @@
 
 # <pep8 compliant>
 
-from typing import (Union,
-                    List
-                    )
 from pathlib import Path
+from typing import (List,
+                    Union,
+                    )
 
 try:
     from io_scene_fbx import import_fbx  # Usually comes with Blender.

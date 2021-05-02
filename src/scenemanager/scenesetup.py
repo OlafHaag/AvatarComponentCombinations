@@ -27,9 +27,9 @@ from typing import (Optional,
                     )
 import bpy
 
-from . import objects as objops
 from .. import file_ops as fops
 from .. import CollNames
+from . import objects as objops
 
 
 def create_new_scene(scene_name: str = 'Avatar Component Combinations') -> bpy.types.Scene:

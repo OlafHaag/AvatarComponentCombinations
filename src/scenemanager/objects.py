@@ -19,9 +19,9 @@
 # <pep8 compliant>
 
 from typing import (Any,
-                    Optional,
+                    Generator,
                     List,
-                    Generator
+                    Optional,
                     )
 import bpy
 

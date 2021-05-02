@@ -18,22 +18,21 @@
 
 # <pep8 compliant>
 
-from collections import namedtuple
 import hashlib
 import itertools
-from pathlib import Path
 import random
-from typing import (Union,
-                    List,
-                    )
+from collections import namedtuple
+from pathlib import Path
+from typing import (List,
+                    Union)
+
 import bpy
 
+from .. import CollNames, Tags
+from .. import file_ops as fops
 from . import materials as mops  # Kinda like Houdini lingo :)
 from . import objects as objops
 from . import scenesetup as setup
-from .. import file_ops as fops
-from .. import Tags
-from .. import CollNames
 
 MAT_PREFIX = "MAT_"
 MESH_PREFIX = "MESH_"

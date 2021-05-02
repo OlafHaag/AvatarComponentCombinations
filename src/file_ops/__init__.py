@@ -18,5 +18,5 @@
 
 # <pep8 compliant>
 
-from .path_ops import *
 from .fbx import load_fbx
+from .path_ops import *
