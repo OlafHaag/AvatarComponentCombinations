@@ -25,6 +25,9 @@ from typing import (Any,
                     )
 import bpy
 
+from . import materials as mops
+from . import MESH_PREFIX
+
 
 def traverse_tree(node: Any):
     """Traverse all children of a directed acyclic graph hierarchy.
@@ -115,12 +118,56 @@ def join_objects(context, objects: List[bpy.types.Object]) -> Optional[bpy.types
     objs = [obj for obj in objects if obj.type == 'MESH']
     # The join-operator needs an active object. Take the first one.
     try:
-        ctx.view_layer.objects.active = objs[0]
+        ctx['active_object'] = objs[0]
     except IndexError:
         return None
     ctx['selected_editable_objects'] = objs
-    res = bpy.ops.object.join(ctx)
-    if res == {'FINISHED'}:
-        return ctx['active_object']
-    else:
-        return None
+    # When there's only 1 element, join returns {'CANCELLED'}. But we're fine with 1 element, proceed.
+    bpy.ops.object.join(ctx)
+    return ctx['active_object']
+
+
+def set_object_attributes(obj,
+                          src_filepath: str,
+                          name: str,
+                          mesh_prefix: str = "MESH_",
+                          material_prefix: str = "MAT_") -> bool:
+    try:
+        obj.src_file = src_filepath  # Custom property.
+        obj.name = name
+        if obj.type == 'MESH':
+            obj.data.name = mesh_prefix + obj.name  # Mesh name.
+    except AttributeError:
+        return False
+    # Name materials according to their object.
+    for material in mops.get_materials(obj):  # There's usually only 1 material.
+        material.name = material_prefix + obj.name  # If the object has multiple materials they'll be numbered.
+    return True
+
+
+def new_object_variant(obj: bpy.types.Object, name: str, materials: List[bpy.types.Material]) -> bpy.types.Object:
+    """Duplicate object and assign materials.
+
+    :param obj: Object to create variant for.
+    :type obj: bpy.types.Object
+    :param name: Name for the new object.
+    :type name: str
+    :param materials: Materials to assign to the variant. In order of material slots.
+    If the number of existing materials exceeds the number of new materials, extra materials are kept assigned.
+    :type materials: List[bpy.types.Material]
+    :return: New object variant.
+    :rtype: bpy.types.Object
+    """
+    new_obj = obj.copy()
+    new_data = new_obj.data.copy()
+    new_data.name = MESH_PREFIX + name
+    new_obj.data = new_data
+    new_obj.name = name
+    for i, mat in enumerate(materials):
+        if len(new_obj.data.materials) > i:
+            # Assign to material slot.
+            new_obj.data.materials[i] = mat
+        else:
+            # No free slot.
+            new_obj.data.materials.append(mat)
+    return new_obj

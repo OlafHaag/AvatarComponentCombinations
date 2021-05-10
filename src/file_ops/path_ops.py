@@ -19,9 +19,11 @@
 # <pep8 compliant>
 
 import itertools
+import re
 from pathlib import Path
 from typing import (Dict,
                     List,
+                    Optional,
                     Union,
                     )
 
@@ -117,6 +119,24 @@ def tags_to_name(tags: Dict, sep: str = "-") -> str:
     return sep.join((tags[t] for t in Tags if t in tags))
 
 
+def replace_name_variant(name: str, variant: str) -> str:
+    """Replace the existing variant in the name by the new variant.
+
+    :param name: Old name.
+    :type name: str
+    :param variant: Variant for the new name.
+    :type variant: str
+    :return: New name with the new variant.
+    :rtype: str
+    """
+    props = parse_file_name(name)
+    is_image = Tags.MAP in props
+    if is_image:
+        props[Tags.MAP] = props[Tags.MAP].upper()
+    props[Tags.VARIANT] = variant
+    return tags_to_name(props)
+
+
 def get_skeleton_type(file_name: str) -> str:
     """Extract skeleton/armature type from file name.
 
@@ -148,7 +168,7 @@ def get_img_variants(img_name: str, path: Path, exclude_current: bool = False) -
     # Gather tags from name to form a pattern to look for.
     p = parse_file_name(img_name, is_image=True)  # Note: If img_name does not follow convention, this alters the tags.
     # Vary variant and map.
-    pattern = f"{p[Tags.TYPE]}-{p[Tags.SKELETON]}-{p[Tags.THEME]}-??-{p[Tags.MESH]}-{p[Tags.REGION]}-?.*"
+    pattern = f"{p[Tags.TYPE]}-{p[Tags.SKELETON]}-{p[Tags.THEME]}-*-{p[Tags.MESH]}-{p[Tags.REGION]}-*.*"
     variants = path.glob(pattern)  # Includes the current image variant.
     # Group by variant.
     groups = itertools.groupby(sorted(variants), lambda x: parse_file_name(x.stem, is_image=True)[Tags.VARIANT])
@@ -160,3 +180,21 @@ def get_img_variants(img_name: str, path: Path, exclude_current: bool = False) -
         except KeyError:
             pass
     return grouped_variants
+
+
+def find_variant_path(img_name: str, variant_paths: List[Path], variant: str = ".*") -> Optional[Path]:
+    """Find the first matching variant from the given paths for an image.
+
+    Note: If no variant is explicitly given, this could return the path of the current variant.
+
+    :param img_name: Name of the image for which to find a variant.
+    :type img_name: str
+    :param variant_paths: List of paths with variants of the image file.
+    :type variant_paths: List[Path]
+    :param variant: Variant to look for, defaults to any variant (".*").
+    :type variant: str, optional
+    :return: Path of the variant found, or None if the variant was not found within the paths.
+    :rtype: Optional[Path]
+    """
+    pattern = replace_name_variant(img_name, variant)
+    return next(filter(lambda path: re.match(pattern, path.stem, flags=re.IGNORECASE), variant_paths), None)

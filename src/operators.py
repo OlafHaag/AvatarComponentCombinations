@@ -79,7 +79,7 @@ class CombineAvatarComponents(bpy.types.Operator):
     )
 
     def execute(self, context):
-        feedback = add_combinations_to_export(context, self.n_combinations)
+        feedback = add_combinations_to_export(context.scene, self.n_combinations)
         for msg_type, msg in feedback:
             self.report({msg_type}, msg)
             if msg_type == 'ERROR':
@@ -176,7 +176,7 @@ class AutoImportExportAvatars(bpy.types.Operator):
                     return {'CANCELLED'}
 
             # Combine components.
-            feedback = add_combinations_to_export(context, self.n_combinations)
+            feedback = add_combinations_to_export(context.scene, self.n_combinations)
             for msg_type, msg in feedback:
                 self.report({msg_type}, msg)
                 if msg_type == 'ERROR':

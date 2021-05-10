@@ -16,6 +16,10 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+MAT_PREFIX = "MAT_"
+MESH_PREFIX = "MESH_"
+
+
 from .manager import (batch_import_components,
                       add_combinations_to_export,
                       export_combinations,
