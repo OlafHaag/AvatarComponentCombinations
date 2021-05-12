@@ -56,9 +56,8 @@ class VIEW3D_PT_AvatarComponentCombinations(bpy.types.Panel):
         layout.separator()
         layout.label(text="Settings:")
         col = layout.column(align=True)
-        col.enabled = False
         col.prop(context.scene, "use_import_texture_variants")
-        col.prop(context.scene, "use_only_matching_sets")
+        #col.prop(context.scene, "use_only_matching_sets")
         layout.prop(context.scene, "n_component_combinations")
         # Auto execution.
         layout.separator()

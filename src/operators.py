@@ -46,7 +46,10 @@ class ImportAvatarComponents(bpy.types.Operator):
     )
 
     def execute(self, context):
-        feedback = batch_import_components(context, self.import_path, use_new_scene=True)
+        feedback = batch_import_components(context,
+                                           self.import_path,
+                                           use_new_scene=True,
+                                           use_variants=self.use_texture_variants)
         for msg_type, msg in feedback:
             self.report({msg_type}, msg)
 
